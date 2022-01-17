@@ -1,0 +1,36 @@
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+div#auth-container {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+div#buttons {
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+#canvas-container {
+  flex-grow: 1;
+}
+
+header {
+  display: flex;
+}

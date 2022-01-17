@@ -1,0 +1,1 @@
+export const CAMERA_Z_DISTANCE_FROM_PLAYER = 40;
