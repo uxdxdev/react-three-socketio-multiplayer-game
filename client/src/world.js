@@ -120,6 +120,7 @@ const sendPlayerData = ({ socketClient, userId, controls: { forward, backward, l
 
 export const World = memo(({ userId, socketClient, worldData }) => {
   const playerRef = useRef();
+  const playerServerPositionRef = useRef();
   const last = useRef(0);
   const [remotePlayers, setRemotePlayers] = useState([]);
   const isMobile = useIsMobile();
@@ -131,7 +132,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   let now = 0;
 
   // lag compensation uses ideal speed for corrections
-  const PLAYER_IDEAL_SPEED = 0.22;
+  const PLAYER_IDEAL_SPEED = 0.23;
   const PLAYER_SPEED = useRef(PLAYER_IDEAL_SPEED);
 
   const prevTime = useRef(0.0);
@@ -155,26 +156,21 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     if (socketClient) {
       socketClient.on('players', (allPlayers) => {
         // client ping
-        const ping = allPlayers[userId].timestamp - Date.now();
+        const ping = Date.now() - allPlayers[userId].timestamp;
         document.getElementById('ping').innerText = ping;
 
         // main player
         const serverPositionX = allPlayers[userId].position.x;
         const serverPositionZ = allPlayers[userId].position.z;
 
-        // interpolation
-        // correct the players position based on the server data
-        if (Math.abs(playerRef.current.position.x - serverPositionX) > CLIENT_SERVER_POSITION_DIFF_MIN || Math.abs(playerRef.current.position.z - serverPositionZ) > CLIENT_SERVER_POSITION_DIFF_MIN) {
-          if (Math.abs(playerRef.current.position.x - serverPositionX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPositionZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
-            // if the players positions is WAY off just reset them to the server position
-            // this will happen when a player is leaving the world and re-entering the other side
-            playerRef.current.position.x = serverPositionX;
-            playerRef.current.position.z = serverPositionZ;
-          }
-          // correcting player position
-          playerRef.current.position.lerp(new Vector3(serverPositionX, 0, serverPositionZ), 0.1);
+        // save the players server side position for interpolation in the render loop
+        playerServerPositionRef.current = { x: serverPositionX, z: serverPositionZ };
 
-          // lag compensation
+        // when the players client side position differs from the server side position
+        // make some adjustments
+        if (Math.abs(playerRef.current.position.x - serverPositionX) > CLIENT_SERVER_POSITION_DIFF_MIN || Math.abs(playerRef.current.position.z - serverPositionZ) > CLIENT_SERVER_POSITION_DIFF_MIN) {
+          // update player speed to try and reduce the difference of player position
+          // between server and client
           const now = Date.now();
           const delta = now - prevTime.current;
           if (delta > prevDelta.current) {
@@ -192,6 +188,14 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
           prevTime.current = now;
           prevDelta.current = delta;
+
+          // correct player position for world boundary loop
+          if (Math.abs(playerRef.current.position.x - serverPositionX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPositionZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
+            // if the players positions is WAY off just reset them to the server position
+            // this will happen when a player is leaving the world and re-entering the other side
+            playerRef.current.position.x = serverPositionX;
+            playerRef.current.position.z = serverPositionZ;
+          }
         }
 
         // if a GLB model is not facing the X positive axis (to the right) we need to rotate it
@@ -208,9 +212,9 @@ export const World = memo(({ userId, socketClient, worldData }) => {
           .filter((id) => id !== userId)
           .map((key, index) => {
             const playerData = allPlayers[key];
-            const moving = playerData.controls.left || playerData.controls.right || playerData.controls.forward || playerData.controls.backward;
+            const isMoving = playerData.controls.left || playerData.controls.right || playerData.controls.forward || playerData.controls.backward;
             const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
-            return <RemotePlayer key={index} moving={moving} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
+            return <RemotePlayer key={index} moving={isMoving} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
           });
 
         if (players.length > 0) {
@@ -227,8 +231,8 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     const rotation = Math.atan2(direction.z, direction.x);
 
     if (playerRef.current) {
+      // client side collision detection
       const isPlayerColliding = runCollisionDetection({ position: playerRef.current.position, rotation }, worldData);
-      // interpolation
       if (!isPlayerColliding) {
         if (left) playerRef.current.position.x -= PLAYER_SPEED.current;
         if (right) playerRef.current.position.x += PLAYER_SPEED.current;
@@ -246,6 +250,11 @@ export const World = memo(({ userId, socketClient, worldData }) => {
       const modelRotation = updateAngleByRadians(rotation, Math.PI / 2);
       // only update the players rotation if moving, this preserves the rotation the player was in before releasing all keys
       moving && playerRef.current.rotation.set(0, modelRotation, 0);
+
+      // continuously correct the players position to align with the server side position data
+      if (playerServerPositionRef.current) {
+        playerRef.current.position.lerp(new Vector3(playerServerPositionRef.current.x, 0, playerServerPositionRef.current.z), 0.05);
+      }
 
       // get the camera to follow the player by updating x and z coordinates
       camera.position.setX(playerRef.current.position.x);
