@@ -85,7 +85,6 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   let allowedOrigins = ALLOWED_ORIGINS.indexOf(origin) >= 0 ? origin : ALLOWED_ORIGINS[0];
 
-  console.log('allowedOrigins', allowedOrigins);
   // only allow requests from the client URL
   res.header('Access-Control-Allow-Origin', allowedOrigins);
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, auth-token');
@@ -96,16 +95,21 @@ app.use((req, res, next) => {
 // send world data to clients for initialisation
 app.get('/world', async (req, res) => {
   const token = req.header('auth-token');
-  const isAuthenticated = await auth
-    .verifyIdToken(token)
-    .then(() => true)
-    .catch(() => false);
+  let isAuthenticated = false;
+  try {
+    isAuthenticated = await auth
+      .verifyIdToken(token)
+      .then(() => true)
+      .catch(() => false);
+  } catch (_) {
+    return res.sendStatus(401);
+  }
 
   if (isAuthenticated) {
-    res.send({ worldData });
-  } else {
-    res.sendStatus(401);
+    return res.send({ worldData });
   }
+
+  return res.sendStatus(404);
 });
 
 // HTTP(S) SERVER
