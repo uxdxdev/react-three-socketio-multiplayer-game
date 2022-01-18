@@ -9,14 +9,14 @@ import { useIsMobile } from './useIsMobile';
 import './styles.css';
 
 const App = () => {
-  const [worldData, setWorldData] = useState();
+  const [worldData, setWorldData] = useState(null);
   const { authToken, login, logout, userId } = useAuth();
   const { socketClient, isServerAuthed } = useNetwork();
   const isMobile = useIsMobile();
 
   // get world data from server
   useEffect(() => {
-    if (authToken) {
+    if (authToken && isServerAuthed) {
       fetch(`${process.env.REACT_APP_SERVER_URL}/world`, {
         headers: {
           'auth-token': authToken,
@@ -26,12 +26,11 @@ const App = () => {
         .then((data) => setWorldData(data.worldData))
         .catch((err) => console.log(err));
     }
-  }, [authToken]);
+  }, [authToken, isServerAuthed]);
 
   return (
     <>
       <div id="auth-container">
-        {authToken && !isServerAuthed && <div id="loading-message">Loading please wait...</div>}
         {!authToken && (
           <div id="buttons">
             <div
@@ -58,12 +57,15 @@ const App = () => {
         )}
       </div>
       {/* see styles.css for canvas-container styling  */}
-
-      <div id="canvas-container">
-        <Canvas shadows orthographic camera={{ zoom: CAMERA_Z_DISTANCE_FROM_PLAYER / 2, position: [0, CAMERA_Z_DISTANCE_FROM_PLAYER, CAMERA_Z_DISTANCE_FROM_PLAYER] }}>
-          {worldData && <World worldData={worldData} userId={userId} socketClient={socketClient} />}
-        </Canvas>
-      </div>
+      {worldData ? (
+        <div id="canvas-container">
+          <Canvas shadows orthographic camera={{ zoom: CAMERA_Z_DISTANCE_FROM_PLAYER / 2, position: [0, CAMERA_Z_DISTANCE_FROM_PLAYER, CAMERA_Z_DISTANCE_FROM_PLAYER] }}>
+            <World worldData={worldData} userId={userId} socketClient={socketClient} />
+          </Canvas>
+        </div>
+      ) : (
+        <div id="loading-message">Loading please wait...</div>
+      )}
       <div style={{ position: 'absolute' }}>
         ping <span id="ping">0</span>ms
       </div>
