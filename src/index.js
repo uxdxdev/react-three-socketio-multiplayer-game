@@ -79,7 +79,7 @@ app.get('/ping', (req, res) => {
 });
 
 // Cross-origin resource sharing settings
-let ALLOWED_ORIGINS = [process.env.CLIENT_URL, 'https://localhost:3000/'];
+let ALLOWED_ORIGINS = ['https://localhost:3000', process.env.CLIENT_URL];
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
