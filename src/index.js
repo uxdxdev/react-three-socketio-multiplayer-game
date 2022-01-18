@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import admin from 'firebase-admin';
 import { Vector3 } from 'three';
 
+dotenv.config();
+
 const tickRateMilliseconds = 15.625; // server update in milliseconds
 const PLAYER_SPEED = 0.2;
 const players = {};
@@ -53,8 +55,6 @@ const worldData = {
   playerBoundingBox,
 };
 
-dotenv.config();
-
 admin.initializeApp({
   credential: admin.credential.cert({
     project_id: process.env.FIREBASE_PROJECT_ID,
@@ -78,15 +78,9 @@ app.get('/ping', (req, res) => {
   res.sendStatus(200);
 });
 
-// Cross-origin resource sharing settings
-let ALLOWED_ORIGINS = ['https://localhost:3000', process.env.CLIENT_URL];
-
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  let allowedOrigins = ALLOWED_ORIGINS.indexOf(origin) >= 0 ? origin : ALLOWED_ORIGINS[0];
-
   // only allow requests from the client URL
-  res.header('Access-Control-Allow-Origin', allowedOrigins);
+  res.header('Access-Control-Allow-Origin', process.env.CLIENT_URL);
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, auth-token');
   res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   next();
@@ -134,7 +128,7 @@ server.listen(process.env.PORT, () => {
 // WEBSOCKET
 const io = new Server(server, {
   cors: {
-    origin: ALLOWED_ORIGINS,
+    origin: process.env.CLIENT_URL,
   },
 });
 
