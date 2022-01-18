@@ -68,6 +68,11 @@ const auth = admin.auth();
 // API
 const app = express();
 
+// health check API
+app.get('/ping', (req, res) => {
+  res.sendStatus(200);
+});
+
 // Cross-origin resource sharing settings
 let ALLOWED_ORIGINS = [process.env.CLIENT_URL, 'https://localhost:3000'];
 
@@ -85,11 +90,6 @@ app.use((req, res, next) => {
 // server homepage
 app.get('/', (req, res) => {
   res.send(`<div>${getNumberOfConnectedClients()} clients connected</div><a href="${process.env.CLIENT_URL}">Go to client</a>`);
-});
-
-// health check API
-app.get('/ping', (req, res) => {
-  res.sendStatus(200);
 });
 
 // send world data to clients for initialisation
