@@ -68,6 +68,11 @@ const auth = admin.auth();
 // API
 const app = express();
 
+// server homepage
+app.get('/', (req, res) => {
+  res.send(`<div>${getNumberOfConnectedClients()} clients connected</div><a href="${process.env.CLIENT_URL}">Go to client</a>`);
+});
+
 // health check API
 app.get('/ping', (req, res) => {
   res.sendStatus(200);
@@ -83,13 +88,8 @@ app.use((req, res, next) => {
   // only allow requests from the client URL
   res.header('Access-Control-Allow-Origin', allowedOrigins);
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, auth-token');
-  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   next();
-});
-
-// server homepage
-app.get('/', (req, res) => {
-  res.send(`<div>${getNumberOfConnectedClients()} clients connected</div><a href="${process.env.CLIENT_URL}">Go to client</a>`);
 });
 
 // send world data to clients for initialisation

@@ -14,13 +14,6 @@ const App = () => {
   const { socketClient, isServerAuthed } = useNetwork();
   const isMobile = useIsMobile();
 
-  // once authenticated, ping the server to check if it's up
-  useEffect(() => {
-    if (authToken) {
-      fetch(`${process.env.REACT_APP_SERVER_URL}/ping`).catch((err) => console.log(err));
-    }
-  }, [authToken]);
-
   // get world data from server
   useEffect(() => {
     if (authToken) {
