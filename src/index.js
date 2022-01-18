@@ -79,12 +79,13 @@ app.get('/ping', (req, res) => {
 });
 
 // Cross-origin resource sharing settings
-let ALLOWED_ORIGINS = [process.env.CLIENT_URL, 'https://localhost:3000'];
+let ALLOWED_ORIGINS = [process.env.CLIENT_URL, 'https://localhost:3000/'];
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   let allowedOrigins = ALLOWED_ORIGINS.indexOf(origin) >= 0 ? origin : ALLOWED_ORIGINS[0];
 
+  console.log('allowedOrigins', allowedOrigins);
   // only allow requests from the client URL
   res.header('Access-Control-Allow-Origin', allowedOrigins);
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, auth-token');
