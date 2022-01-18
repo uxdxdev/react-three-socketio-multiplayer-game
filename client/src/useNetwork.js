@@ -42,8 +42,6 @@ export const useNetwork = () => {
   useEffect(() => {
     if (socketClient) {
       socketClient.on(events.CONNECTION_ERROR, (err) => {
-        console.log('test', err);
-
         setIsServerAuthed(false);
       });
     }

@@ -79,6 +79,7 @@ app.get('/ping', (req, res) => {
 });
 
 app.use((req, res, next) => {
+  console.log('Allowed origin', process.env.CLIENT_URL);
   // only allow requests from the client URL
   res.header('Access-Control-Allow-Origin', process.env.CLIENT_URL);
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, auth-token');
