@@ -12,9 +12,16 @@ div#auth-container {
   position: absolute;
   z-index: 1;
   display: flex;
-  top: 50%;
+  top: 30%;
   left: 50%;
   transform: translate(-50%, -50%);
+}
+
+div#loading-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
 }
 
 div#buttons {
