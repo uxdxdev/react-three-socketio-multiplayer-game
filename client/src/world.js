@@ -127,6 +127,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const keyboard = usePlayerControls();
   const joystick = useJoystick();
   const { forward, backward, left, right } = isMobile ? joystick : keyboard;
+  let pings = [];
 
   const moving = forward || backward || left || right;
   let now = 0;
@@ -155,9 +156,16 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   useEffect(() => {
     if (socketClient) {
       socketClient.on('players', (allPlayers) => {
-        // client ping
-        const ping = Date.now() - allPlayers[userId].timestamp;
-        document.getElementById('ping').innerText = ping;
+        // avg ping
+        const thisPing = Date.now() - allPlayers[userId].timestamp;
+        pings.push(thisPing);
+        if (pings.length > 10) {
+          const avgPing = pings.reduce((prev, current) => {
+            return prev + current;
+          }, 0);
+          document.getElementById('ping').innerText = avgPing / 10;
+          pings = [];
+        }
 
         // main player
         const serverPositionX = allPlayers[userId].position.x;
