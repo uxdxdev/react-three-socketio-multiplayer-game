@@ -251,7 +251,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     }
 
     // slowly correct player position to server position
-    playerRef.current.position.lerp(new Vector3(predictedPlayerPosX, 0, predictedPlayerPosZ), 0.05);
+    playerRef.current.position.lerp(new Vector3(predictedPlayerPosX, 0, predictedPlayerPosZ), 0.1);
 
     // set player rotation to server rotation
     const updatedModelRotation = updateAngleByRadians(predicatedPlayerRotation, Math.PI / 2);
