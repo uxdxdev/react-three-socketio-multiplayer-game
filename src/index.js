@@ -6,11 +6,12 @@ import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
 import { Vector3 } from 'three';
+import { initRandomPlayers, generateRandomPlayers } from './utils.js';
 
 dotenv.config();
 
-const tickRateMilliseconds = 15.625; // server update in milliseconds
-const PLAYER_SPEED = 0.2;
+const tickRateMilliseconds = 33; // server update in milliseconds
+const PLAYER_SPEED = 10;
 const players = {};
 const events = {
   CONNECTION: 'connection',
@@ -53,6 +54,7 @@ const worldData = {
   depth: 100,
   objects: [...trees, ...houses],
   playerBoundingBox,
+  playerSpeed: PLAYER_SPEED,
 };
 
 admin.initializeApp({
@@ -161,25 +163,17 @@ io.on(events.CONNECTION, (client) => {
       z: 0,
     },
     rotation: 0,
-    controls: {
-      left: false,
-      right: false,
-      forward: false,
-      backward: false,
-    },
-    timestamp: 0,
+    moves: [],
+    ts: 0,
   };
 
   // send client id to signal server authentication
   client.emit(events.CONNECTED, client.id);
 
-  // get updates from the client
-  client.on('player_update', (data) => {
-    if (data.id && data.controls && players[data.id]) {
-      players[data.id].controls.left = data.controls.left;
-      players[data.id].controls.right = data.controls.right;
-      players[data.id].controls.forward = data.controls.forward;
-      players[data.id].controls.backward = data.controls.backward;
+  // save updates from the client
+  client.on('player_update', ({ id, controls, ts }) => {
+    if (id && players[id] && controls) {
+      players[id].moves.push({ ts, controls });
     }
   });
 
@@ -195,44 +189,43 @@ setInterval(() => {
   main();
 }, tickRateMilliseconds);
 
+let prevTime = 0;
 const main = () => {
+  const now = Date.now();
+  const delta = (now - prevTime) / 1000;
   // for each player, update player position based on world, objects, and collision data
   for (let key of Object.keys(players)) {
-    const playerData = players[key];
+    while (players[key].moves.length > 0) {
+      const move = players[key].moves.shift();
 
-    const moving = playerData.controls.left || playerData.controls.right || playerData.controls.forward || playerData.controls.backward;
-    // if (!moving) continue;
+      // const moving = move.controls.left || move.controls.right || move.controls.forward || move.controls.backward;
 
-    // apply rotation to player based on controls
-    frontVector.set(0, 0, Number(playerData.controls.backward) - Number(playerData.controls.forward));
-    sideVector.set(Number(playerData.controls.left) - Number(playerData.controls.right), 0, 0);
-    direction.subVectors(frontVector, sideVector);
-    const rotation = Math.atan2(direction.z, direction.x);
+      // apply rotation to player based on controls
+      frontVector.set(0, 0, Number(move.controls.backward) - Number(move.controls.forward));
+      sideVector.set(Number(move.controls.left) - Number(move.controls.right), 0, 0);
+      direction.subVectors(frontVector, sideVector);
+      const rotation = Math.atan2(direction.z, direction.x);
 
-    // update position
-    const newPosition = updatePlayerPosition(playerData, worldData);
+      // collision detection based on new position
+      const newPosition = updatePlayerPosition({ position: players[key].position, controls: move.controls }, PLAYER_SPEED, delta, worldData);
 
-    // collision detection based on new position
-    const updatedPlayerData = { rotation, position: newPosition };
-    const isPlayerColliding = runCollisionDetection(updatedPlayerData, worldData);
+      const updatedPlayerData = { rotation, position: newPosition };
+      const isPlayerColliding = runCollisionDetection(updatedPlayerData, worldData);
 
-    // if collision use previous position instead of new position
-    players[key].position = isPlayerColliding ? playerData.position : newPosition;
+      if (!isPlayerColliding) {
+        players[key].position = newPosition;
+        players[key].rotation = rotation;
+      }
 
-    // only update the rotation if the player is moving, this keeps the player orientated correctly when they stop moving
-    players[key].rotation = moving ? rotation : players[key].rotation;
-
-    // players[key].controls = {
-    //   left: false,
-    //   right: false,
-    //   forward: false,
-    //   backward: false,
-    // };
-
-    players[key].timestamp = Date.now();
+      // record the latest processed move timestamp
+      players[key].ts = move.ts;
+    }
   }
+
   // send all clients all player data
   io.sockets.emit('players', players);
+
+  prevTime = now;
 };
 
 const runCollisionDetection = (playerData, world) => {
@@ -250,12 +243,12 @@ const runCollisionDetection = (playerData, world) => {
   return false;
 };
 
-const updatePlayerPosition = (player, world) => {
+const updatePlayerPosition = (player, playerSpeed, delta, world) => {
   const newPosition = { ...player.position };
-  if (player.controls.left) newPosition.x -= PLAYER_SPEED;
-  if (player.controls.right) newPosition.x += PLAYER_SPEED;
-  if (player.controls.forward) newPosition.z -= PLAYER_SPEED;
-  if (player.controls.backward) newPosition.z += PLAYER_SPEED;
+  if (player.controls.left) newPosition.x -= playerSpeed * delta;
+  if (player.controls.right) newPosition.x += playerSpeed * delta;
+  if (player.controls.forward) newPosition.z -= playerSpeed * delta;
+  if (player.controls.backward) newPosition.z += playerSpeed * delta;
 
   // if player leaves world boundaries position them on the other side of the world
   // this gives the illusion that the player is running around on a sphere
@@ -349,47 +342,6 @@ const doPolygonsIntersect = (a, b) => {
   return true;
 };
 
-const pick = ['left', 'right', 'forward', 'backward'];
-const getRandomInt = (min, max) => {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-};
-
-const generateRandomPlayers = () => {
-  // randomly move the players around
-  for (let p = 0; p < 100; p++) {
-    players['player' + p].controls = {
-      left: false,
-      right: false,
-      forward: false,
-      backward: false,
-    };
-    const index = getRandomInt(0, 3);
-    const direction = pick[index];
-    players['player' + p].controls[direction] = true;
-  }
-};
-
-const initRandomPlayers = () => {
-  // setup some players
-  for (let p = 0; p < 100; p++) {
-    players['player' + p] = {
-      position: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-      rotation: 0,
-      controls: {
-        left: false,
-        right: false,
-        forward: false,
-        backward: false,
-      },
-    };
-  }
-};
 // initRandomPlayers();
 // setInterval(() => {
 //   generateRandomPlayers();

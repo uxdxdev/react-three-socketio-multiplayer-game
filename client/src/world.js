@@ -111,41 +111,43 @@ const isUndefined = (value) => {
   return value === undefined;
 };
 
-const sendPlayerData = ({ socketClient, userId, controls: { forward, backward, left, right } }) => {
+const sendPlayerData = (socketClient, playerData) => {
   if (socketClient) {
-    const playerData = { id: userId, controls: { forward, backward, left, right } };
     socketClient.emit('player_update', playerData);
   }
 };
 
+const updatePlayerPosition = (player, playerSpeed, delta, world) => {
+  const newPosition = { ...player.position };
+  if (player.controls.left) newPosition.x -= playerSpeed * delta;
+  if (player.controls.right) newPosition.x += playerSpeed * delta;
+  if (player.controls.forward) newPosition.z -= playerSpeed * delta;
+  if (player.controls.backward) newPosition.z += playerSpeed * delta;
+
+  if (newPosition.x < -world.width) newPosition.x = world.width;
+  if (newPosition.x > world.width) newPosition.x = -world.width;
+  if (newPosition.z < -world.depth) newPosition.z = world.depth;
+  if (newPosition.z > world.depth) newPosition.z = -world.depth;
+
+  return newPosition;
+};
+
 export const World = memo(({ userId, socketClient, worldData }) => {
   const playerRef = useRef();
-  const playerServerPositionRef = useRef();
-  const last = useRef(0);
+  const serverInProgressMovesRef = useRef();
+  const playerSavedMovesRef = useRef([]);
   const [remotePlayers, setRemotePlayers] = useState([]);
   const isMobile = useIsMobile();
   const keyboard = usePlayerControls();
   const joystick = useJoystick();
   const { forward, backward, left, right } = isMobile ? joystick : keyboard;
-  let pings = [];
-
   const moving = forward || backward || left || right;
-  let now = 0;
-
-  // lag compensation uses ideal speed for corrections
-  const PLAYER_IDEAL_SPEED = 0.23;
-  const PLAYER_SPEED = useRef(PLAYER_IDEAL_SPEED);
-
-  const prevTime = useRef(0.0);
-  const prevDelta = useRef(0.0);
-
-  const CLIENT_SERVER_POSITION_DIFF_MIN = 2;
+  const PLAYER_SPEED = worldData.playerSpeed;
   const CLIENT_SERVER_POSITION_DIFF_MAX = 10;
-  let millisecondsPerTick = 33; // client tick rate for sending data to server
-  let tickRate = millisecondsPerTick / 1000;
   const frontVector = new Vector3();
   const sideVector = new Vector3();
   const direction = new Vector3();
+  const serverPosition = useRef({ x: 0, z: 0, rotation: 0 });
 
   const { trees, houses } = useMemo(() => {
     const trees = worldData.objects.filter((obj) => obj.type === 'tree').map(({ x, z, rotation }, index) => <OrangeTree key={index} position={{ x, z }} rotation={rotation} />);
@@ -156,64 +158,13 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   useEffect(() => {
     if (socketClient) {
       socketClient.on('players', (allPlayers) => {
-        // avg ping
-        const thisPing = Date.now() - allPlayers[userId].timestamp;
-        pings.push(thisPing);
-        if (pings.length > 10) {
-          const avgPing = pings.reduce((prev, current) => {
-            return prev + current;
-          }, 0);
-          document.getElementById('ping').innerText = avgPing / 10;
-          pings = [];
-        }
+        // save server position for move replay in render loop (useFrame)
+        serverPosition.current = { x: allPlayers[userId].position.x, z: allPlayers[userId].position.z, rotation: allPlayers[userId].rotation };
 
-        // main player
-        const serverPositionX = allPlayers[userId].position.x;
-        const serverPositionZ = allPlayers[userId].position.z;
-
-        // save the players server side position for interpolation in the render loop
-        playerServerPositionRef.current = { x: serverPositionX, z: serverPositionZ };
-
-        // when the players client side position differs from the server side position
-        // make some adjustments
-        if (Math.abs(playerRef.current.position.x - serverPositionX) > CLIENT_SERVER_POSITION_DIFF_MIN || Math.abs(playerRef.current.position.z - serverPositionZ) > CLIENT_SERVER_POSITION_DIFF_MIN) {
-          // update player speed to try and reduce the difference of player position
-          // between server and client
-          const now = Date.now();
-          const delta = now - prevTime.current;
-          if (delta > prevDelta.current) {
-            // if corrections occur more often it's likely ping has increased so reduce player speed
-            PLAYER_SPEED.current -= 0.005;
-          } else {
-            // else ping has decreased so increase player speed
-            PLAYER_SPEED.current += 0.005;
-          }
-
-          // if player speed differs from ideal speed too much correct player speed
-          if (Math.abs(PLAYER_SPEED.current - PLAYER_IDEAL_SPEED) > 0.05) {
-            PLAYER_SPEED.current = PLAYER_IDEAL_SPEED;
-          }
-
-          prevTime.current = now;
-          prevDelta.current = delta;
-
-          // correct player position for world boundary loop
-          if (Math.abs(playerRef.current.position.x - serverPositionX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPositionZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
-            // if the players positions is WAY off just reset them to the server position
-            // this will happen when a player is leaving the world and re-entering the other side
-            playerRef.current.position.x = serverPositionX;
-            playerRef.current.position.z = serverPositionZ;
-          }
-        }
-
-        // if a GLB model is not facing the X positive axis (to the right) we need to rotate it
-        // so that our collision detection from the server works because it's based on a direction
-        // value in radians of 0 pointing parallel to the positive X axis, see Math.atan2()
-        // player fox model currently facing Z positive, which means it needs to be updated to face X positive
-        const modelRotation = updateAngleByRadians(allPlayers[userId].rotation, Math.PI / 2);
-        if (Math.abs(playerRef.current.rotation.y - modelRotation) > 1) {
-          playerRef.current.rotation.set(0, modelRotation, 0);
-        }
+        // remove all moves processed by the server leaving only moves being currently process by the server
+        serverInProgressMovesRef.current = playerSavedMovesRef.current.filter((savedMove) => {
+          return savedMove.ts > allPlayers[userId].ts;
+        });
 
         // remote players
         let players = Object.keys(allPlayers)
@@ -232,59 +183,92 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     }
   }, [socketClient, userId]);
 
-  useFrame(({ camera, clock }) => {
-    frontVector.set(0, 0, Number(backward) - Number(forward));
-    sideVector.set(Number(left) - Number(right), 0, 0);
-    direction.subVectors(frontVector, sideVector);
-    const rotation = Math.atan2(direction.z, direction.x);
-
-    if (playerRef.current) {
-      // client side collision detection
-      const isPlayerColliding = runCollisionDetection({ position: playerRef.current.position, rotation }, worldData);
-      if (!isPlayerColliding) {
-        if (left) playerRef.current.position.x -= PLAYER_SPEED.current;
-        if (right) playerRef.current.position.x += PLAYER_SPEED.current;
-        if (forward) playerRef.current.position.z -= PLAYER_SPEED.current;
-        if (backward) playerRef.current.position.z += PLAYER_SPEED.current;
-      }
-
-      // if player leaves world boundaries position them on the other side of the world
-      // this gives the illusion that the player is running around on a sphere
-      if (playerRef.current.position.x < -worldData.width) playerRef.current.position.x = worldData.width;
-      if (playerRef.current.position.x > worldData.width) playerRef.current.position.x = -worldData.width;
-      if (playerRef.current.position.z < -worldData.depth) playerRef.current.position.z = worldData.depth;
-      if (playerRef.current.position.z > worldData.depth) playerRef.current.position.z = -worldData.depth;
-
-      const modelRotation = updateAngleByRadians(rotation, Math.PI / 2);
-      // only update the players rotation if moving, this preserves the rotation the player was in before releasing all keys
-      moving && playerRef.current.rotation.set(0, modelRotation, 0);
-
-      // continuously correct the players position to align with the server side position data
-      if (playerServerPositionRef.current) {
-        playerRef.current.position.lerp(new Vector3(playerServerPositionRef.current.x, 0, playerServerPositionRef.current.z), 0.05);
-      }
-
-      // get the camera to follow the player by updating x and z coordinates
-      camera.position.setX(playerRef.current.position.x);
-      camera.position.setZ(playerRef.current.position.z + CAMERA_Z_DISTANCE_FROM_PLAYER);
+  useFrame(({ camera, clock }, delta) => {
+    if (Math.abs(playerRef.current.position.x - serverPosition.current.x) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPosition.current.z) > CLIENT_SERVER_POSITION_DIFF_MAX) {
+      // if the players positions is WAY off just reset them to the server position
+      // this will happen when a player is leaving the world and re-entering the other side
+      playerRef.current.position.x = serverPosition.current.x;
+      playerRef.current.position.z = serverPosition.current.z;
     }
-    // run this block at tickRate
-    now = clock.getElapsedTime();
-    if (now - last.current >= tickRate) {
-      // send player position to server
-      sendPlayerData({
-        socketClient,
-        userId,
+
+    // slowly correct player position to server position
+    playerRef.current.position.lerp(new Vector3(serverPosition.current.x, 0, serverPosition.current.z), 0.2);
+
+    // set player rotation to server rotation
+    const updatedModelRotation = updateAngleByRadians(serverPosition.current.rotation, Math.PI / 2);
+    playerRef.current.rotation.set(0, updatedModelRotation, 0);
+
+    // replay server moves that are in progress considering collision detection
+    serverInProgressMovesRef.current.forEach((unprocessedMove) => {
+      const currentPosition = {
+        position: {
+          x: playerRef.current.position.x,
+          z: playerRef.current.position.z,
+        },
+        controls: { forward: unprocessedMove.controls.forward, backward: unprocessedMove.controls.backward, left: unprocessedMove.controls.left, right: unprocessedMove.controls.right },
+      };
+      const newPosition = updatePlayerPosition(currentPosition, PLAYER_SPEED, delta, worldData);
+      const isPlayerColliding = runCollisionDetection({ position: newPosition, rotation: playerRef.current.rotation }, worldData);
+      if (!isPlayerColliding) {
+        playerRef.current.position.x = newPosition.x;
+        playerRef.current.position.z = newPosition.z;
+        const modelRotation = updateAngleByRadians(playerRef.current.rotation, Math.PI / 2);
+        playerRef.current.rotation.set(0, modelRotation, 0);
+      }
+
+      // when the server responds with the final position update it should be the same this the player right now after
+      // replaying these moves
+    });
+
+    if (moving) {
+      // SEND PLAYER INPUTS TO SERVER
+      const playerData = {
+        id: userId,
         controls: {
           forward,
           backward,
           left,
           right,
         },
-      });
-      // reset the elapsed time if it goes over our tickrate
-      last.current = now;
+        ts: Date.now(),
+      };
+      sendPlayerData(socketClient, playerData);
+
+      // CLIENT SIDE PREDICTION
+      frontVector.set(0, 0, Number(backward) - Number(forward));
+      sideVector.set(Number(left) - Number(right), 0, 0);
+      direction.subVectors(frontVector, sideVector);
+      const rotation = Math.atan2(direction.z, direction.x);
+
+      if (playerRef.current) {
+        // client side collision detection
+        const currentPosition = {
+          position: {
+            x: playerRef.current.position.x,
+            z: playerRef.current.position.z,
+          },
+          controls: { forward, backward, left, right },
+        };
+        const newPosition = updatePlayerPosition(currentPosition, PLAYER_SPEED, delta, worldData);
+        const isPlayerColliding = runCollisionDetection({ position: newPosition, rotation }, worldData);
+        if (!isPlayerColliding) {
+          playerRef.current.position.x = newPosition.x;
+          playerRef.current.position.z = newPosition.z;
+          const modelRotation = updateAngleByRadians(rotation, Math.PI / 2);
+          playerRef.current.rotation.set(0, modelRotation, 0);
+        }
+      }
+
+      playerSavedMovesRef.current.push(playerData);
+
+      while (playerSavedMovesRef.current.length > 30) {
+        playerSavedMovesRef.current.shift();
+      }
     }
+
+    // get the camera to follow the player by updating x and z coordinates
+    camera.position.setX(playerRef.current.position.x);
+    camera.position.setZ(playerRef.current.position.z + CAMERA_Z_DISTANCE_FROM_PLAYER);
   });
 
   const directionalLightSizeWidth = worldData.width;

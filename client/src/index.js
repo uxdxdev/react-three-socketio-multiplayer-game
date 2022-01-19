@@ -66,9 +66,6 @@ const App = () => {
       ) : (
         <div id="loading-message">Loading please wait...</div>
       )}
-      <div style={{ position: 'absolute' }}>
-        ping <span id="ping">0</span>ms
-      </div>
       {isMobile && <div id="joystick"></div>}
     </>
   );
