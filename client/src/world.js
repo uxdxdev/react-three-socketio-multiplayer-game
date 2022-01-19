@@ -174,6 +174,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const moving = forward || backward || left || right;
   const PLAYER_SPEED = worldData.playerSpeed;
   const CLIENT_SERVER_POSITION_DIFF_MAX = 10;
+  const SERVER_CLIENT_POSITION_THRESHOLD = 0.1;
 
   const directionalLightSizeWidth = worldData.width;
   const directionalLightSizeDepth = worldData.depth;
@@ -218,7 +219,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     }
   }, [socketClient, userId]);
 
-  let frame = 0;
   useFrame(({ camera }, delta) => {
     // CLIENT SIDE PREDICTION REPLAY
     let predictedPlayerPosX = serverPosition.current.x;
@@ -251,16 +251,14 @@ export const World = memo(({ userId, socketClient, worldData }) => {
       playerRef.current.position.z = predictedPlayerPosZ;
     }
 
-    // update player position every x frames to give the server a change to process
-    // all inputs
-    if (frame > 3) {
+    if (Math.abs(playerRef.current.position.x - predictedPlayerPosX) > SERVER_CLIENT_POSITION_THRESHOLD || Math.abs(playerRef.current.position.z - predictedPlayerPosZ) > SERVER_CLIENT_POSITION_THRESHOLD) {
       // slowly correct player position to server position
       playerRef.current.position.lerp(new Vector3(predictedPlayerPosX, 0, predictedPlayerPosZ), 0.1);
-      // set player rotation to server rotation
-      const updatedModelRotation = updateAngleByRadians(predicatedPlayerRotation, Math.PI / 2);
-      playerRef.current.rotation.set(0, updatedModelRotation, 0);
-      frame = 0;
     }
+
+    // set player rotation to server rotation
+    const updatedModelRotation = updateAngleByRadians(predicatedPlayerRotation, Math.PI / 2);
+    playerRef.current.rotation.set(0, updatedModelRotation, 0);
 
     if (moving) {
       // SEND PLAYER INPUTS TO SERVER

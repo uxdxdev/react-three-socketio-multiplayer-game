@@ -10,7 +10,7 @@ import { Vector3 } from 'three';
 dotenv.config();
 
 const tickRateMilliseconds = 15;
-const PLAYER_SPEED = 20;
+const PLAYER_SPEED = 15;
 const players = {};
 const events = {
   CONNECTION: 'connection',
