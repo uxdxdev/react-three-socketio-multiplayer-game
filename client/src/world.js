@@ -232,7 +232,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
           x: serverPlayerPosX,
           z: serverPlayerPosZ,
         },
-        updateAngleByRadians(serverPlayerRotation, Math.PI / 2),
+        serverPlayerRotation,
         controls,
         PLAYER_SPEED,
         delta,
