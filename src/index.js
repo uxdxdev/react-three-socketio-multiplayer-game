@@ -9,8 +9,8 @@ import { Vector3 } from 'three';
 
 dotenv.config();
 
-const tickRateMilliseconds = 33; // server update in milliseconds
-const PLAYER_SPEED = 10;
+const tickRateMilliseconds = 15;
+const PLAYER_SPEED = 20;
 const players = {};
 const events = {
   CONNECTION: 'connection',
@@ -185,51 +185,6 @@ io.on(events.CONNECTION, (client) => {
   });
 });
 
-setInterval(() => {
-  main();
-}, tickRateMilliseconds);
-
-let prevTime = 0;
-const main = () => {
-  const now = Date.now();
-  const delta = (now - prevTime) / 1000;
-  // for each player, update player position based on world, objects, and collision data
-  for (let key of Object.keys(players)) {
-    while (players[key].moves.length > 0) {
-      const move = players[key].moves.shift();
-
-      const moving = move.controls.left || move.controls.right || move.controls.forward || move.controls.backward;
-
-      // apply rotation to player based on controls
-      frontVector.set(0, 0, Number(move.controls.backward) - Number(move.controls.forward));
-      sideVector.set(Number(move.controls.left) - Number(move.controls.right), 0, 0);
-      direction.subVectors(frontVector, sideVector);
-      const rotation = Math.atan2(direction.z, direction.x);
-
-      // collision detection based on new position
-      const newPosition = updatePlayerPosition({ position: players[key].position, controls: move.controls }, PLAYER_SPEED, delta, worldData);
-
-      const updatedPlayerData = { rotation, position: newPosition };
-      const isPlayerColliding = runCollisionDetection(updatedPlayerData, worldData);
-
-      if (!isPlayerColliding) {
-        players[key].position = newPosition;
-        players[key].rotation = rotation;
-      }
-
-      // record the latest processed move timestamp
-      players[key].ts = move.ts;
-
-      players[key].moving = moving;
-    }
-  }
-
-  // send all clients all player data
-  io.sockets.emit('players', players);
-
-  prevTime = now;
-};
-
 const runCollisionDetection = (playerData, world) => {
   const playerBBoxRotated = getRotatedRectangle(playerData.rotation, playerData.position, playerBoundingBox);
 
@@ -388,3 +343,51 @@ export const initRandomPlayers = () => {
 // setInterval(() => {
 //   generateRandomPlayers();
 // }, 33);
+
+setInterval(() => {
+  tick();
+}, tickRateMilliseconds);
+
+let prevTime = 0;
+const tick = () => {
+  const now = Date.now();
+  const delta = (now - prevTime) / 1000;
+  // for each player, update player position based on world, objects, and collision data
+  for (let key of Object.keys(players)) {
+    while (players[key].moves.length > 0) {
+      const move = players[key].moves.shift();
+
+      const moving = move.controls.left || move.controls.right || move.controls.forward || move.controls.backward;
+
+      // apply rotation to player based on controls
+      frontVector.set(0, 0, Number(move.controls.backward) - Number(move.controls.forward));
+      sideVector.set(Number(move.controls.left) - Number(move.controls.right), 0, 0);
+      direction.subVectors(frontVector, sideVector);
+      const rotation = Math.atan2(direction.z, direction.x);
+
+      // collision detection based on new position
+      const newPosition = updatePlayerPosition({ position: players[key].position, controls: move.controls }, PLAYER_SPEED, delta, worldData);
+
+      const updatedPlayerData = { rotation, position: newPosition };
+      const isPlayerColliding = runCollisionDetection(updatedPlayerData, worldData);
+
+      if (!isPlayerColliding) {
+        players[key].position = newPosition;
+        players[key].rotation = rotation;
+      }
+
+      // record the latest processed move timestamp
+      players[key].ts = move.ts;
+
+      players[key].moving = moving;
+    }
+  }
+  updateAllPlayers();
+
+  prevTime = now;
+};
+
+const updateAllPlayers = () => {
+  // send all clients all player data
+  io.sockets.emit('players', players);
+};

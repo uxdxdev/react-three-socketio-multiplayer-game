@@ -18,7 +18,6 @@ const updateAngleByRadians = (angle, radians) => {
 
 const runCollisionDetection = (playerData, world) => {
   const playerBBoxRotated = getRotatedRectangle(playerData.rotation, playerData.position, world.playerBoundingBox);
-
   const worldObjects = world.objects;
   for (const worldObject of worldObjects) {
     const objectBBoxRotated = getRotatedRectangle(worldObject.rotation, { x: worldObject.x, z: worldObject.z }, worldObject.bbox);
@@ -117,12 +116,12 @@ const sendPlayerData = (socketClient, playerData) => {
   }
 };
 
-const updatePlayerPosition = (player, playerSpeed, delta, world) => {
-  const newPosition = { ...player.position };
-  if (player.controls.left) newPosition.x -= playerSpeed * delta;
-  if (player.controls.right) newPosition.x += playerSpeed * delta;
-  if (player.controls.forward) newPosition.z -= playerSpeed * delta;
-  if (player.controls.backward) newPosition.z += playerSpeed * delta;
+const getUpdatedPosition = (position, { forward, backward, left, right }, playerSpeed, delta, world) => {
+  const newPosition = { ...position };
+  if (left) newPosition.x -= playerSpeed * delta;
+  if (right) newPosition.x += playerSpeed * delta;
+  if (forward) newPosition.z -= playerSpeed * delta;
+  if (backward) newPosition.z += playerSpeed * delta;
 
   if (newPosition.x < -world.width) newPosition.x = world.width;
   if (newPosition.x > world.width) newPosition.x = -world.width;
@@ -132,22 +131,58 @@ const updatePlayerPosition = (player, playerSpeed, delta, world) => {
   return newPosition;
 };
 
+const getUpdatedPlayerPositionRotation = (currentPosition, currentRotation, controls, playerSpeed, delta, worldData) => {
+  let updatedPosition = null;
+  let updatedRotation = null;
+
+  // rotation
+  const frontVector = new Vector3();
+  const sideVector = new Vector3();
+  const direction = new Vector3();
+  const { forward, backward, left, right } = controls;
+  frontVector.set(0, 0, Number(backward) - Number(forward));
+  sideVector.set(Number(left) - Number(right), 0, 0);
+  direction.subVectors(frontVector, sideVector);
+  const newRotation = Math.atan2(direction.z, direction.x);
+
+  // collision detection
+  updatedPosition = currentPosition;
+  updatedRotation = currentRotation;
+
+  const newPosition = getUpdatedPosition(currentPosition, controls, playerSpeed, delta, worldData);
+  const isPlayerColliding = runCollisionDetection({ position: newPosition, rotation: newRotation }, worldData);
+  if (!isPlayerColliding) {
+    updatedPosition = newPosition;
+    updatedRotation = newRotation;
+  }
+  return { position: updatedPosition, rotation: updatedRotation };
+};
+
 export const World = memo(({ userId, socketClient, worldData }) => {
-  const playerRef = useRef();
-  const serverInProgressMovesRef = useRef();
+  const playerRef = useRef({ position: { x: 0, z: 0 }, rotation: 0 });
+  const serverInProgressMovesRef = useRef([]);
   const playerSavedMovesRef = useRef([]);
+  const serverPosition = useRef({ x: 0, z: 0, rotation: 0 });
+
   const [remotePlayers, setRemotePlayers] = useState([]);
+
   const isMobile = useIsMobile();
   const keyboard = usePlayerControls();
   const joystick = useJoystick();
+
   const { forward, backward, left, right } = isMobile ? joystick : keyboard;
   const moving = forward || backward || left || right;
   const PLAYER_SPEED = worldData.playerSpeed;
   const CLIENT_SERVER_POSITION_DIFF_MAX = 10;
-  const frontVector = new Vector3();
-  const sideVector = new Vector3();
-  const direction = new Vector3();
-  const serverPosition = useRef({ x: 0, z: 0, rotation: 0 });
+
+  const directionalLightSizeWidth = worldData.width;
+  const directionalLightSizeDepth = worldData.depth;
+  const directionalLightHeight = worldData.height;
+  const shadowCameraDimensionsRight = directionalLightSizeWidth * 2;
+  const shadowCameraDimensionsLeft = -directionalLightSizeWidth * 2;
+  const shadowCameraDimensionsTop = directionalLightSizeDepth * 2;
+  const shadowCameraDimensionsBottom = -directionalLightSizeDepth * 2;
+  const shadowResolution = 4096;
 
   const { trees, houses } = useMemo(() => {
     const trees = worldData.objects.filter((obj) => obj.type === 'tree').map(({ x, z, rotation }, index) => <OrangeTree key={index} position={{ x, z }} rotation={rotation} />);
@@ -183,42 +218,44 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     }
   }, [socketClient, userId]);
 
-  useFrame(({ camera, clock }, delta) => {
-    if (Math.abs(playerRef.current.position.x - serverPosition.current.x) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPosition.current.z) > CLIENT_SERVER_POSITION_DIFF_MAX) {
-      // if the players positions is WAY off just reset them to the server position
-      // this will happen when a player is leaving the world and re-entering the other side
-      playerRef.current.position.x = serverPosition.current.x;
-      playerRef.current.position.z = serverPosition.current.z;
-    }
-
-    // slowly correct player position to server position
-    playerRef.current.position.lerp(new Vector3(serverPosition.current.x, 0, serverPosition.current.z), 0.2);
-
-    // set player rotation to server rotation
-    const updatedModelRotation = updateAngleByRadians(serverPosition.current.rotation, Math.PI / 2);
-    playerRef.current.rotation.set(0, updatedModelRotation, 0);
+  useFrame(({ camera }, delta) => {
+    // CLIENT SIDE PREDICTION REPLAY
+    let serverPlayerPosX = serverPosition.current.x;
+    let serverPlayerPosZ = serverPosition.current.z;
+    let serverPlayerRotation = serverPosition.current.rotation;
 
     // replay server moves that are in progress considering collision detection
     serverInProgressMovesRef.current.forEach((unprocessedMove) => {
-      const currentPosition = {
-        position: {
-          x: playerRef.current.position.x,
-          z: playerRef.current.position.z,
+      const controls = { forward: unprocessedMove.controls.forward, backward: unprocessedMove.controls.backward, left: unprocessedMove.controls.left, right: unprocessedMove.controls.right };
+      const { position, rotation } = getUpdatedPlayerPositionRotation(
+        {
+          x: serverPlayerPosX,
+          z: serverPlayerPosZ,
         },
-        controls: { forward: unprocessedMove.controls.forward, backward: unprocessedMove.controls.backward, left: unprocessedMove.controls.left, right: unprocessedMove.controls.right },
-      };
-      const newPosition = updatePlayerPosition(currentPosition, PLAYER_SPEED, delta, worldData);
-      const isPlayerColliding = runCollisionDetection({ position: newPosition, rotation: playerRef.current.rotation }, worldData);
-      if (!isPlayerColliding) {
-        playerRef.current.position.x = newPosition.x;
-        playerRef.current.position.z = newPosition.z;
-        const modelRotation = updateAngleByRadians(playerRef.current.rotation, Math.PI / 2);
-        playerRef.current.rotation.set(0, modelRotation, 0);
-      }
-
-      // when the server responds with the final position update it should be the same this the player right now after
-      // replaying these moves
+        updateAngleByRadians(serverPlayerRotation, Math.PI / 2),
+        controls,
+        PLAYER_SPEED,
+        delta,
+        worldData
+      );
+      serverPlayerPosX = position.x;
+      serverPlayerPosZ = position.z;
+      serverPlayerRotation = rotation;
     });
+
+    // slowly correct player position to server position
+    playerRef.current.position.lerp(new Vector3(serverPlayerPosX, 0, serverPlayerPosZ), 0.2);
+
+    // if (Math.abs(playerRef.current.position.x - serverPlayerPosX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPlayerPosZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
+    //   // if the players positions is WAY off just reset them to the server position
+    //   // this will happen when a player is leaving the world and re-entering the other side
+    //   playerRef.current.position.x = serverPlayerPosX;
+    //   playerRef.current.position.z = serverPlayerPosZ;
+    // }
+
+    // set player rotation to server rotation
+    const updatedModelRotation = updateAngleByRadians(serverPlayerRotation, Math.PI / 2);
+    playerRef.current.rotation.set(0, updatedModelRotation, 0);
 
     if (moving) {
       // SEND PLAYER INPUTS TO SERVER
@@ -235,29 +272,22 @@ export const World = memo(({ userId, socketClient, worldData }) => {
       sendPlayerData(socketClient, playerData);
 
       // CLIENT SIDE PREDICTION
-      frontVector.set(0, 0, Number(backward) - Number(forward));
-      sideVector.set(Number(left) - Number(right), 0, 0);
-      direction.subVectors(frontVector, sideVector);
-      const rotation = Math.atan2(direction.z, direction.x);
+      const { position, rotation } = getUpdatedPlayerPositionRotation(
+        {
+          x: playerRef.current.position.x,
+          z: playerRef.current.position.z,
+        },
+        updateAngleByRadians(playerRef.current.rotation.y, Math.PI / 2),
+        { forward, backward, left, right },
+        PLAYER_SPEED,
+        delta,
+        worldData
+      );
+      playerRef.current.position.x = position.x;
+      playerRef.current.position.z = position.z;
 
-      if (playerRef.current) {
-        // client side collision detection
-        const currentPosition = {
-          position: {
-            x: playerRef.current.position.x,
-            z: playerRef.current.position.z,
-          },
-          controls: { forward, backward, left, right },
-        };
-        const newPosition = updatePlayerPosition(currentPosition, PLAYER_SPEED, delta, worldData);
-        const isPlayerColliding = runCollisionDetection({ position: newPosition, rotation }, worldData);
-        if (!isPlayerColliding) {
-          playerRef.current.position.x = newPosition.x;
-          playerRef.current.position.z = newPosition.z;
-          const modelRotation = updateAngleByRadians(rotation, Math.PI / 2);
-          playerRef.current.rotation.set(0, modelRotation, 0);
-        }
-      }
+      const updatedModelRotation = updateAngleByRadians(rotation, Math.PI / 2);
+      playerRef.current.rotation.set(0, updatedModelRotation, 0);
 
       playerSavedMovesRef.current.push(playerData);
 
@@ -270,15 +300,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     camera.position.setX(playerRef.current.position.x);
     camera.position.setZ(playerRef.current.position.z + CAMERA_Z_DISTANCE_FROM_PLAYER);
   });
-
-  const directionalLightSizeWidth = worldData.width;
-  const directionalLightSizeDepth = worldData.depth;
-  const directionalLightHeight = worldData.height;
-  const shadowCameraDimensionsRight = directionalLightSizeWidth * 2;
-  const shadowCameraDimensionsLeft = -directionalLightSizeWidth * 2;
-  const shadowCameraDimensionsTop = directionalLightSizeDepth * 2;
-  const shadowCameraDimensionsBottom = -directionalLightSizeDepth * 2;
-  const shadowResolution = 4096;
 
   return (
     <>
