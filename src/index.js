@@ -6,7 +6,6 @@ import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
 import { Vector3 } from 'three';
-import { initRandomPlayers, generateRandomPlayers } from './utils.js';
 
 dotenv.config();
 
@@ -162,6 +161,7 @@ io.on(events.CONNECTION, (client) => {
       y: 0,
       z: 0,
     },
+    moving: false,
     rotation: 0,
     moves: [],
     ts: 0,
@@ -198,7 +198,7 @@ const main = () => {
     while (players[key].moves.length > 0) {
       const move = players[key].moves.shift();
 
-      // const moving = move.controls.left || move.controls.right || move.controls.forward || move.controls.backward;
+      const moving = move.controls.left || move.controls.right || move.controls.forward || move.controls.backward;
 
       // apply rotation to player based on controls
       frontVector.set(0, 0, Number(move.controls.backward) - Number(move.controls.forward));
@@ -219,6 +219,8 @@ const main = () => {
 
       // record the latest processed move timestamp
       players[key].ts = move.ts;
+
+      players[key].moving = moving;
     }
   }
 
@@ -340,6 +342,46 @@ const doPolygonsIntersect = (a, b) => {
     }
   }
   return true;
+};
+
+const pick = ['left', 'right', 'forward', 'backward'];
+const getRandomInt = (min, max) => {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
+export const generateRandomPlayers = () => {
+  // randomly move the players around
+  for (let p = 0; p < 100; p++) {
+    const controls = {
+      left: false,
+      right: false,
+      forward: false,
+      backward: false,
+    };
+    const index = getRandomInt(0, 3);
+    const direction = pick[index];
+    controls[direction] = true;
+    players['player' + p].moves.push({ ts: Date.now(), controls });
+  }
+};
+
+export const initRandomPlayers = () => {
+  // setup some players
+  for (let p = 0; p < 100; p++) {
+    players['player' + p] = {
+      position: {
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      moving: false,
+      rotation: 0,
+      moves: [],
+      ts: 0,
+    };
+  }
 };
 
 // initRandomPlayers();

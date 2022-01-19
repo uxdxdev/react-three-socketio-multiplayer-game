@@ -171,7 +171,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
           .filter((id) => id !== userId)
           .map((key, index) => {
             const playerData = allPlayers[key];
-            const isMoving = playerData.controls.left || playerData.controls.right || playerData.controls.forward || playerData.controls.backward;
+            const isMoving = playerData.moving;
             const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
             return <RemotePlayer key={index} moving={isMoving} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
           });
