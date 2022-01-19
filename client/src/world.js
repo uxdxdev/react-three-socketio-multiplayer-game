@@ -243,15 +243,15 @@ export const World = memo(({ userId, socketClient, worldData }) => {
       serverPlayerRotation = rotation;
     });
 
+    if (Math.abs(playerRef.current.position.x - serverPlayerPosX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPlayerPosZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
+      // if the players positions is WAY off just reset them to the server position
+      // this will happen when a player is leaving the world and re-entering the other side
+      playerRef.current.position.x = serverPlayerPosX;
+      playerRef.current.position.z = serverPlayerPosZ;
+    }
+
     // slowly correct player position to server position
     playerRef.current.position.lerp(new Vector3(serverPlayerPosX, 0, serverPlayerPosZ), 0.2);
-
-    // if (Math.abs(playerRef.current.position.x - serverPlayerPosX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPlayerPosZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
-    //   // if the players positions is WAY off just reset them to the server position
-    //   // this will happen when a player is leaving the world and re-entering the other side
-    //   playerRef.current.position.x = serverPlayerPosX;
-    //   playerRef.current.position.z = serverPlayerPosZ;
-    // }
 
     // set player rotation to server rotation
     const updatedModelRotation = updateAngleByRadians(serverPlayerRotation, Math.PI / 2);
