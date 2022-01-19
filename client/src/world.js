@@ -174,7 +174,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const moving = forward || backward || left || right;
   const PLAYER_SPEED = worldData.playerSpeed;
   const CLIENT_SERVER_POSITION_DIFF_MAX = 10;
-  const SERVER_CLIENT_POSITION_THRESHOLD = 0.1;
 
   const directionalLightSizeWidth = worldData.width;
   const directionalLightSizeDepth = worldData.depth;
@@ -251,10 +250,8 @@ export const World = memo(({ userId, socketClient, worldData }) => {
       playerRef.current.position.z = predictedPlayerPosZ;
     }
 
-    if (Math.abs(playerRef.current.position.x - predictedPlayerPosX) > SERVER_CLIENT_POSITION_THRESHOLD || Math.abs(playerRef.current.position.z - predictedPlayerPosZ) > SERVER_CLIENT_POSITION_THRESHOLD) {
-      // slowly correct player position to server position
-      playerRef.current.position.lerp(new Vector3(predictedPlayerPosX, 0, predictedPlayerPosZ), 0.1);
-    }
+    // slowly correct player position to server position
+    moving && playerRef.current.position.lerp(new Vector3(predictedPlayerPosX, 0, predictedPlayerPosZ), 0.1);
 
     // set player rotation to server rotation
     const updatedModelRotation = updateAngleByRadians(predicatedPlayerRotation, Math.PI / 2);
