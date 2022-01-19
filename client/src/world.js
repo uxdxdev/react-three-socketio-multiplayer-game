@@ -220,41 +220,41 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
   useFrame(({ camera }, delta) => {
     // CLIENT SIDE PREDICTION REPLAY
-    let serverPlayerPosX = serverPosition.current.x;
-    let serverPlayerPosZ = serverPosition.current.z;
-    let serverPlayerRotation = serverPosition.current.rotation;
+    let predictedPlayerPosX = serverPosition.current.x;
+    let predictedPlayerPosZ = serverPosition.current.z;
+    let predicatedPlayerRotation = serverPosition.current.rotation;
 
     // replay server moves that are in progress considering collision detection
     serverInProgressMovesRef.current.forEach((unprocessedMove) => {
       const controls = { forward: unprocessedMove.controls.forward, backward: unprocessedMove.controls.backward, left: unprocessedMove.controls.left, right: unprocessedMove.controls.right };
       const { position, rotation } = getUpdatedPlayerPositionRotation(
         {
-          x: serverPlayerPosX,
-          z: serverPlayerPosZ,
+          x: predictedPlayerPosX,
+          z: predictedPlayerPosZ,
         },
-        serverPlayerRotation,
+        predicatedPlayerRotation,
         controls,
         PLAYER_SPEED,
         delta,
         worldData
       );
-      serverPlayerPosX = position.x;
-      serverPlayerPosZ = position.z;
-      serverPlayerRotation = rotation;
+      predictedPlayerPosX = position.x;
+      predictedPlayerPosZ = position.z;
+      predicatedPlayerRotation = rotation;
     });
 
-    if (Math.abs(playerRef.current.position.x - serverPlayerPosX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - serverPlayerPosZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
+    if (Math.abs(playerRef.current.position.x - predictedPlayerPosX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - predictedPlayerPosZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
       // if the players positions is WAY off just reset them to the server position
       // this will happen when a player is leaving the world and re-entering the other side
-      playerRef.current.position.x = serverPlayerPosX;
-      playerRef.current.position.z = serverPlayerPosZ;
+      playerRef.current.position.x = predictedPlayerPosX;
+      playerRef.current.position.z = predictedPlayerPosZ;
     }
 
     // slowly correct player position to server position
-    playerRef.current.position.lerp(new Vector3(serverPlayerPosX, 0, serverPlayerPosZ), 0.2);
+    playerRef.current.position.lerp(new Vector3(predictedPlayerPosX, 0, predictedPlayerPosZ), 0.1);
 
     // set player rotation to server rotation
-    const updatedModelRotation = updateAngleByRadians(serverPlayerRotation, Math.PI / 2);
+    const updatedModelRotation = updateAngleByRadians(predicatedPlayerRotation, Math.PI / 2);
     playerRef.current.rotation.set(0, updatedModelRotation, 0);
 
     if (moving) {
