@@ -171,9 +171,10 @@ io.on(events.CONNECTION, (client) => {
   client.emit(events.CONNECTED, client.id);
 
   // save updates from the client
-  client.on('player_update', ({ id, controls, ts }) => {
-    if (id && players[id] && controls) {
-      players[id].moves.push({ ts, controls });
+  client.on('player_update', ({ id, controls, ts, moving }) => {
+    if (id && players[id]) {
+      controls && ts && players[id].moves.push({ ts, controls });
+      players[id].moving = moving;
     }
   });
 
@@ -357,8 +358,6 @@ const tick = () => {
     while (players[key].moves.length > 0) {
       const move = players[key].moves.shift();
 
-      const moving = move.controls.left || move.controls.right || move.controls.forward || move.controls.backward;
-
       // apply rotation to player based on controls
       frontVector.set(0, 0, Number(move.controls.backward) - Number(move.controls.forward));
       sideVector.set(Number(move.controls.left) - Number(move.controls.right), 0, 0);
@@ -378,8 +377,6 @@ const tick = () => {
 
       // record the latest processed move timestamp
       players[key].ts = move.ts;
-
-      players[key].moving = moving;
     }
   }
   updateAllPlayers();
@@ -389,5 +386,5 @@ const tick = () => {
 
 const updateAllPlayers = () => {
   // send all clients all player data
-  io.sockets.emit('players', players);
+  io.sockets.emit('world_update', players);
 };

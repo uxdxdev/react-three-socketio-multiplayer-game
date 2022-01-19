@@ -162,6 +162,8 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const playerRef = useRef({ position: { x: 0, z: 0 }, rotation: 0 });
   const serverInProgressMovesRef = useRef([]);
   const playerSavedMovesRef = useRef([]);
+  const isMoving = useRef(false);
+
   const serverPosition = useRef({ x: 0, z: 0, rotation: 0 });
 
   const [remotePlayers, setRemotePlayers] = useState([]);
@@ -192,7 +194,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
   useEffect(() => {
     if (socketClient) {
-      socketClient.on('players', (allPlayers) => {
+      socketClient.on('world_update', (allPlayers) => {
         // save server position for move replay in render loop (useFrame)
         serverPosition.current = { x: allPlayers[userId].position.x, z: allPlayers[userId].position.z, rotation: allPlayers[userId].rotation };
 
@@ -204,16 +206,13 @@ export const World = memo(({ userId, socketClient, worldData }) => {
         // remote players
         let players = Object.keys(allPlayers)
           .filter((id) => id !== userId)
-          .map((key, index) => {
+          .map((key) => {
             const playerData = allPlayers[key];
-            const isMoving = playerData.moving;
             const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
-            return <RemotePlayer key={index} moving={isMoving} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
+            return <RemotePlayer key={key} moving={playerData.moving} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
           });
 
-        if (players.length > 0) {
-          setRemotePlayers(players);
-        }
+        setRemotePlayers(players);
       });
     }
   }, [socketClient, userId]);
@@ -258,6 +257,10 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     playerRef.current.rotation.set(0, updatedModelRotation, 0);
 
     if (moving) {
+      // keep track of when player is moving to
+      // notify server when player stops moving
+      isMoving.current = true;
+
       // SEND PLAYER INPUTS TO SERVER
       const playerData = {
         id: userId,
@@ -267,6 +270,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
           left,
           right,
         },
+        moving,
         ts: Date.now(),
       };
       sendPlayerData(socketClient, playerData);
@@ -294,6 +298,16 @@ export const World = memo(({ userId, socketClient, worldData }) => {
       while (playerSavedMovesRef.current.length > 30) {
         playerSavedMovesRef.current.shift();
       }
+    }
+
+    if (isMoving.current && !moving) {
+      // stopped moving, tell the server
+      isMoving.current = false;
+      const playerData = {
+        id: userId,
+        moving,
+      };
+      sendPlayerData(socketClient, playerData);
     }
 
     // get the camera to follow the player by updating x and z coordinates
