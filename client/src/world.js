@@ -177,15 +177,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const PLAYER_SPEED = worldData.playerSpeed;
   const CLIENT_SERVER_POSITION_DIFF_MAX = 10;
 
-  const directionalLightSizeWidth = worldData.width;
-  const directionalLightSizeDepth = worldData.depth;
-  const directionalLightHeight = worldData.height;
-  const shadowCameraDimensionsRight = directionalLightSizeWidth * 2;
-  const shadowCameraDimensionsLeft = -directionalLightSizeWidth * 2;
-  const shadowCameraDimensionsTop = directionalLightSizeDepth * 2;
-  const shadowCameraDimensionsBottom = -directionalLightSizeDepth * 2;
-  const shadowResolution = 4096;
-
   const { trees, houses } = useMemo(() => {
     const trees = worldData.objects.filter((obj) => obj.type === 'tree').map(({ x, z, rotation }, index) => <OrangeTree key={index} position={{ x, z }} rotation={rotation} />);
     const houses = worldData.objects.filter((obj) => obj.type === 'house').map(({ x, z, rotation }, index) => <House key={index} position={{ x, z }} rotation={rotation} />);
@@ -203,14 +194,14 @@ export const World = memo(({ userId, socketClient, worldData }) => {
           return savedMove.ts > allPlayers[userId].ts;
         });
 
+        // delete this user from the world update
+        delete allPlayers[userId];
         // remote players
-        let players = Object.keys(allPlayers)
-          .filter((id) => id !== userId)
-          .map((key) => {
-            const playerData = allPlayers[key];
-            const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
-            return <RemotePlayer key={key} moving={playerData.moving} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
-          });
+        let players = Object.keys(allPlayers).map((key) => {
+          const playerData = allPlayers[key];
+          const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
+          return <RemotePlayer key={key} moving={playerData.moving} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
+        });
 
         setRemotePlayers(players);
       });
@@ -316,25 +307,12 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   });
 
   return (
-    <>
-      <ambientLight />
-      <directionalLight
-        castShadow
-        position={[directionalLightSizeWidth, directionalLightHeight, directionalLightSizeDepth]}
-        shadow-camera-right={shadowCameraDimensionsRight}
-        shadow-camera-left={shadowCameraDimensionsLeft}
-        shadow-camera-top={shadowCameraDimensionsTop}
-        shadow-camera-bottom={shadowCameraDimensionsBottom}
-        shadow-mapSize-width={shadowResolution}
-        shadow-mapSize-height={shadowResolution}
-      />
-      <Suspense fallback={<Loader />}>
-        <Player ref={playerRef} moving={moving} />
-        {remotePlayers}
-        {trees}
-        {houses}
-        <Ground width={worldData.width * 3} depth={worldData.depth * 3} />
-      </Suspense>
-    </>
+    <Suspense fallback={<Loader />}>
+      <Player ref={playerRef} moving={moving} />
+      {remotePlayers}
+      {trees}
+      {houses}
+      <Ground width={worldData.width * 3} depth={worldData.depth * 3} />
+    </Suspense>
   );
 });

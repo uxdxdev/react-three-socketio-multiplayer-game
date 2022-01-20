@@ -14,6 +14,15 @@ const App = () => {
   const { socketClient, isServerAuthed } = useNetwork();
   const isMobile = useIsMobile();
 
+  const directionalLightSizeWidth = worldData && worldData.width;
+  const directionalLightSizeDepth = worldData && worldData.depth;
+  const directionalLightHeight = worldData && worldData.height;
+  const shadowCameraDimensionsRight = directionalLightSizeWidth * 2;
+  const shadowCameraDimensionsLeft = -directionalLightSizeWidth * 2;
+  const shadowCameraDimensionsTop = directionalLightSizeDepth * 2;
+  const shadowCameraDimensionsBottom = -directionalLightSizeDepth * 2;
+  const shadowResolution = 4096;
+
   // get world data from server
   useEffect(() => {
     if (authToken && isServerAuthed) {
@@ -60,6 +69,17 @@ const App = () => {
       {worldData ? (
         <div id="canvas-container">
           <Canvas shadows orthographic camera={{ zoom: CAMERA_Z_DISTANCE_FROM_PLAYER / 2, position: [0, CAMERA_Z_DISTANCE_FROM_PLAYER, CAMERA_Z_DISTANCE_FROM_PLAYER] }}>
+            <ambientLight />
+            <directionalLight
+              castShadow
+              position={[directionalLightSizeWidth, directionalLightHeight, directionalLightSizeDepth]}
+              shadow-camera-right={shadowCameraDimensionsRight}
+              shadow-camera-left={shadowCameraDimensionsLeft}
+              shadow-camera-top={shadowCameraDimensionsTop}
+              shadow-camera-bottom={shadowCameraDimensionsBottom}
+              shadow-mapSize-width={shadowResolution}
+              shadow-mapSize-height={shadowResolution}
+            />
             <World worldData={worldData} userId={userId} socketClient={socketClient} />
           </Canvas>
         </div>
