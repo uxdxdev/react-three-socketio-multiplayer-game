@@ -10,7 +10,7 @@ import { Vector3 } from 'three';
 dotenv.config();
 
 const tickRateMilliseconds = 15;
-const PLAYER_SPEED = 15;
+const PLAYER_SPEED = 10;
 const players = {};
 const events = {
   CONNECTION: 'connection',
@@ -22,28 +22,37 @@ const frontVector = new Vector3();
 const sideVector = new Vector3();
 const direction = new Vector3();
 
-const treeData = fs.readFileSync('src/data/trees.data', 'utf8');
-const trees = JSON.parse(treeData);
+const tree01Data = fs.readFileSync('src/data/tree01.json', 'utf8');
+const tree01 = JSON.parse(tree01Data);
 
-const houseData = fs.readFileSync('src/data/houses.data', 'utf8');
-const houses = JSON.parse(houseData);
+const house01Data = fs.readFileSync('src/data/house01.json', 'utf8');
+const house01 = JSON.parse(house01Data);
+
+const grass01Data = fs.readFileSync('src/data/grass01.json', 'utf8');
+const grass01 = JSON.parse(grass01Data);
+
+const plant01Data = fs.readFileSync('src/data/plant01.json', 'utf8');
+const plant01 = JSON.parse(plant01Data);
+
+const mushroom01Data = fs.readFileSync('src/data/mushroom01.json', 'utf8');
+const mushroom01 = JSON.parse(mushroom01Data);
 
 const playerBoundingBox = {
   bl: {
-    x: -0.5,
-    z: -0.5,
+    x: -1,
+    z: -1,
   },
   br: {
-    x: -0.5,
-    z: 0.5,
+    x: -1,
+    z: 1,
   },
   fl: {
-    x: 2,
-    z: -0.5,
+    x: 1,
+    z: -1,
   },
   fr: {
-    x: 2,
-    z: 0.5,
+    x: 1,
+    z: 1,
   },
 };
 
@@ -51,7 +60,8 @@ const worldData = {
   width: 100,
   height: 100,
   depth: 100,
-  objects: [...trees, ...houses],
+  collidableObjects: [...tree01, ...house01],
+  noncollidableObjects: [...grass01, ...plant01, ...mushroom01],
   playerBoundingBox,
   playerSpeed: PLAYER_SPEED,
 };
@@ -189,7 +199,7 @@ io.on(events.CONNECTION, (client) => {
 const runCollisionDetection = (playerData, world) => {
   const playerBBoxRotated = getRotatedRectangle(playerData.rotation, playerData.position, playerBoundingBox);
 
-  const worldObjects = world.objects;
+  const worldObjects = world.collidableObjects;
   for (const worldObject of worldObjects) {
     const objectBBoxRotated = getRotatedRectangle(worldObject.rotation, { x: worldObject.x, z: worldObject.z }, worldObject.bbox);
     if (doPolygonsIntersect(playerBBoxRotated, objectBBoxRotated)) {

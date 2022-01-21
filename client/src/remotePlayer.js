@@ -1,6 +1,6 @@
 import { useRef, memo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Fox } from './fox';
+import { Character } from './character';
 
 export const RemotePlayer = memo(({ position, rotation, moving }) => {
   const ref = useRef();
@@ -11,5 +11,5 @@ export const RemotePlayer = memo(({ position, rotation, moving }) => {
     ref.current.position.z = position[2];
   });
 
-  return <Fox ref={ref} moving={moving} position={initPosition.current} rotation={rotation} />;
+  return <Character ref={ref} moving={moving} position={initPosition.current} rotation={rotation} />;
 });

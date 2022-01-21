@@ -6,7 +6,7 @@ export const Ground = memo(({ width, depth }) => {
   return (
     <mesh ref={ref} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[width, depth]} />
-      <meshStandardMaterial color={0x7cfc00} />
+      <meshStandardMaterial color={'#4fa200'} />
     </mesh>
   );
 });

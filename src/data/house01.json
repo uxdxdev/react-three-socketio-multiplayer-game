@@ -1,6 +1,6 @@
 [
   {
-    "type": "house",
+    "type": "house01",
     "bbox": {
       "bl": {
         "x": -9,
@@ -24,7 +24,7 @@
     "rotation": 3.141592653589793
   },
   {
-    "type": "house",
+    "type": "house01",
     "bbox": {
       "bl": {
         "x": -9,
@@ -48,7 +48,7 @@
     "rotation": 3.141592653589793
   },
   {
-    "type": "house",
+    "type": "house01",
     "bbox": {
       "bl": {
         "x": -9,
@@ -72,7 +72,7 @@
     "rotation": 3.141592653589793
   },
   {
-    "type": "house",
+    "type": "house01",
     "bbox": {
       "bl": {
         "x": -9,

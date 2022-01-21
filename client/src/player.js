@@ -1,8 +1,8 @@
 import React, { forwardRef, memo } from 'react';
-import { Fox } from './fox';
+import { Character } from './character';
 
 export const Player = memo(
   forwardRef(({ moving }, ref) => {
-    return <Fox ref={ref} moving={moving} />;
+    return <Character ref={ref} moving={moving} />;
   })
 );

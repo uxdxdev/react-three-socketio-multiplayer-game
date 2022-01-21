@@ -1,16 +1,16 @@
-import { Suspense, useRef, memo, useState, useEffect, useMemo } from 'react';
-import { Player } from './player';
-import { OrangeTree } from './orangeTree';
-import { House } from './house';
-import { Loader } from './loader';
-import { RemotePlayer } from './remotePlayer';
+import { Suspense, useRef, memo, useState, useEffect } from 'react';
 import { Vector3 } from 'three';
 import { useFrame } from '@react-three/fiber';
+import { Player } from './player';
+import { Loader } from './loader';
+import { RemotePlayer } from './remotePlayer';
 import { Ground } from './ground';
 import { CAMERA_Z_DISTANCE_FROM_PLAYER } from './contants';
 import { usePlayerControls } from './usePlayerControls';
 import { useJoystick } from './useJoystick';
 import { useIsMobile } from './useIsMobile';
+import { Environment } from './environment';
+import { Bee } from './bee';
 
 const updateAngleByRadians = (angle, radians) => {
   return radians - angle;
@@ -18,7 +18,7 @@ const updateAngleByRadians = (angle, radians) => {
 
 const runCollisionDetection = (playerData, world) => {
   const playerBBoxRotated = getRotatedRectangle(playerData.rotation, playerData.position, world.playerBoundingBox);
-  const worldObjects = world.objects;
+  const worldObjects = world.collidableObjects;
   for (const worldObject of worldObjects) {
     const objectBBoxRotated = getRotatedRectangle(worldObject.rotation, { x: worldObject.x, z: worldObject.z }, worldObject.bbox);
     if (doPolygonsIntersect(playerBBoxRotated, objectBBoxRotated)) {
@@ -163,7 +163,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const serverInProgressMovesRef = useRef([]);
   const playerSavedMovesRef = useRef([]);
   const isMoving = useRef(false);
-
   const serverPosition = useRef({ x: 0, z: 0, rotation: 0 });
 
   const [remotePlayers, setRemotePlayers] = useState([]);
@@ -177,22 +176,18 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const PLAYER_SPEED = worldData.playerSpeed;
   const CLIENT_SERVER_POSITION_DIFF_MAX = 10;
 
-  const { trees, houses } = useMemo(() => {
-    const trees = worldData.objects.filter((obj) => obj.type === 'tree').map(({ x, z, rotation }, index) => <OrangeTree key={index} position={{ x, z }} rotation={rotation} />);
-    const houses = worldData.objects.filter((obj) => obj.type === 'house').map(({ x, z, rotation }, index) => <House key={index} position={{ x, z }} rotation={rotation} />);
-    return { trees, houses };
-  }, [worldData]);
-
   useEffect(() => {
     if (socketClient) {
       socketClient.on('world_update', (allPlayers) => {
         // save server position for move replay in render loop (useFrame)
-        serverPosition.current = { x: allPlayers[userId].position.x, z: allPlayers[userId].position.z, rotation: allPlayers[userId].rotation };
+        if (allPlayers[userId]) {
+          serverPosition.current = { x: allPlayers[userId].position.x, z: allPlayers[userId].position.z, rotation: allPlayers[userId].rotation };
 
-        // remove all moves processed by the server leaving only moves being currently process by the server
-        serverInProgressMovesRef.current = playerSavedMovesRef.current.filter((savedMove) => {
-          return savedMove.ts > allPlayers[userId].ts;
-        });
+          // remove all moves processed by the server leaving only moves being currently process by the server
+          serverInProgressMovesRef.current = playerSavedMovesRef.current.filter((savedMove) => {
+            return savedMove.ts > allPlayers[userId].ts;
+          });
+        }
 
         // delete this user from the world update
         delete allPlayers[userId];
@@ -310,8 +305,32 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     <Suspense fallback={<Loader />}>
       <Player ref={playerRef} moving={moving} />
       {remotePlayers}
-      {trees}
-      {houses}
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+      <Bee position={[0, 20, 0]} />
+
+      <Environment worldData={worldData} />
       <Ground width={worldData.width * 3} depth={worldData.depth * 3} />
     </Suspense>
   );
