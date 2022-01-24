@@ -57,9 +57,9 @@ const playerBoundingBox = {
 };
 
 const worldData = {
-  width: 100,
+  width: 120,
   height: 100,
-  depth: 100,
+  depth: 120,
   collidableObjects: [...tree01, ...house01],
   noncollidableObjects: [...grass01, ...plant01, ...mushroom01],
   playerBoundingBox,
@@ -171,7 +171,6 @@ io.on(events.CONNECTION, (client) => {
       y: 0,
       z: 0,
     },
-    moving: false,
     rotation: 0,
     moves: [],
     ts: 0,
@@ -181,10 +180,9 @@ io.on(events.CONNECTION, (client) => {
   client.emit(events.CONNECTED, client.id);
 
   // save updates from the client
-  client.on('player_update', ({ id, controls, ts, moving }) => {
+  client.on('player_update', ({ id, controls, ts }) => {
     if (id && players[id]) {
       controls && ts && players[id].moves.push({ ts, controls });
-      players[id].moving = moving;
     }
   });
 
@@ -342,7 +340,6 @@ export const initRandomPlayers = () => {
         y: 0,
         z: 0,
       },
-      moving: false,
       rotation: 0,
       moves: [],
       ts: 0,

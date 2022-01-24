@@ -1,6 +1,6 @@
-import React, { forwardRef, useEffect, useMemo, memo } from 'react';
+import React, { forwardRef, useMemo, memo, useRef } from 'react';
 import { useGLTF, useAnimations } from '@react-three/drei';
-import { useGraph } from '@react-three/fiber';
+import { useFrame, useGraph } from '@react-three/fiber';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils';
 
 export const Character = memo(
@@ -8,18 +8,29 @@ export const Character = memo(
     const { scene, materials, animations } = useGLTF('/Character.gltf');
     const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
     const { nodes } = useGraph(clone);
-    const { moving, rotation, position } = props;
+    const { rotation, position } = props;
     const { actions } = useAnimations(animations, ref);
+    const isMoving = useRef(false);
+    const prevPosition = useRef();
 
-    useEffect(() => {
-      if (moving) {
+    useFrame(() => {
+      const isUpdatingPosition = prevPosition.current && (prevPosition.current.x !== ref.current.position.x || prevPosition.current.z !== ref.current.position.z);
+
+      if (!isMoving.current && isUpdatingPosition) {
         actions.Idle.stop();
         actions.Run.play();
-      } else {
+        isMoving.current = true;
+      }
+
+      if (isMoving.current && !isUpdatingPosition) {
+        console.log('stopped moving');
         actions.Run.stop();
         actions.Idle.play();
+        isMoving.current = false;
       }
-    }, [actions, moving]);
+
+      prevPosition.current = { ...ref.current.position };
+    });
 
     return (
       <group ref={ref} position={position} rotation={[0, rotation, 0]} dispose={null} scale={[1, 1, 1]}>

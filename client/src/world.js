@@ -1,4 +1,4 @@
-import { Suspense, useRef, memo, useState, useEffect } from 'react';
+import { Suspense, useRef, memo, useState, useEffect, createRef } from 'react';
 import { Vector3 } from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Player } from './player';
@@ -162,9 +162,9 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const playerRef = useRef({ position: { x: 0, z: 0 }, rotation: 0 });
   const serverInProgressMovesRef = useRef([]);
   const playerSavedMovesRef = useRef([]);
-  const isMoving = useRef(false);
   const serverPosition = useRef({ x: 0, z: 0, rotation: 0 });
 
+  const remotePlayersRef = useRef({});
   const [remotePlayers, setRemotePlayers] = useState([]);
 
   const isMobile = useIsMobile();
@@ -191,14 +191,48 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
         // delete this user from the world update
         delete allPlayers[userId];
-        // remote players
-        let players = Object.keys(allPlayers).map((key) => {
-          const playerData = allPlayers[key];
-          const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
-          return <RemotePlayer key={key} moving={playerData.moving} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
+
+        Object.keys(allPlayers).forEach((serverPlayerKey) => {
+          // if the player exists on the client already just update their position
+          if (remotePlayersRef.current.hasOwnProperty(serverPlayerKey)) {
+            const playerData = allPlayers[serverPlayerKey];
+            const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
+            if (remotePlayersRef.current[serverPlayerKey].ref.current) {
+              remotePlayersRef.current[serverPlayerKey].ref.current.position.lerp(new Vector3(allPlayers[serverPlayerKey].position.x, 0, allPlayers[serverPlayerKey].position.z), 0.2);
+
+              // when the player lerps close enough to server position lock it in
+              if (Math.abs(remotePlayersRef.current[serverPlayerKey].ref.current.position.x - allPlayers[serverPlayerKey].position.x) < 0.1) {
+                remotePlayersRef.current[serverPlayerKey].ref.current.position.x = allPlayers[serverPlayerKey].position.x;
+              }
+              if (Math.abs(remotePlayersRef.current[serverPlayerKey].ref.current.position.z - allPlayers[serverPlayerKey].position.z) < 0.1) {
+                remotePlayersRef.current[serverPlayerKey].ref.current.position.z = allPlayers[serverPlayerKey].position.z;
+              }
+
+              remotePlayersRef.current[serverPlayerKey].ref.current.rotation.set(0, updatedRotation, 0);
+            }
+          }
         });
 
-        setRemotePlayers(players);
+        // rebuild the component tree if there is any difference
+        // between client and server players
+        const serverPlayerKeys = Object.keys(allPlayers).sort();
+        const clientPlayerKeys = Object.keys(remotePlayersRef.current).sort();
+        if (serverPlayerKeys.toString() !== clientPlayerKeys.toString()) {
+          remotePlayersRef.current = {};
+          const updatedRemotePlayers = [];
+          serverPlayerKeys.forEach((key) => {
+            const ref = createRef();
+            const playerData = allPlayers[key];
+            const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
+            const remotePlayer = <RemotePlayer ref={ref} key={key} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
+
+            updatedRemotePlayers.push(remotePlayer);
+            remotePlayersRef.current[key] = {
+              ref,
+            };
+          });
+          setRemotePlayers(updatedRemotePlayers);
+        }
       });
     }
   }, [socketClient, userId]);
@@ -243,10 +277,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     playerRef.current.rotation.set(0, updatedModelRotation, 0);
 
     if (moving) {
-      // keep track of when player is moving to
-      // notify server when player stops moving
-      isMoving.current = true;
-
       // SEND PLAYER INPUTS TO SERVER
       const playerData = {
         id: userId,
@@ -256,7 +286,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
           left,
           right,
         },
-        moving,
         ts: Date.now(),
       };
       sendPlayerData(socketClient, playerData);
@@ -286,16 +315,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
       }
     }
 
-    if (isMoving.current && !moving) {
-      // stopped moving, tell the server
-      isMoving.current = false;
-      const playerData = {
-        id: userId,
-        moving,
-      };
-      sendPlayerData(socketClient, playerData);
-    }
-
     // get the camera to follow the player by updating x and z coordinates
     camera.position.setX(playerRef.current.position.x);
     camera.position.setZ(playerRef.current.position.z + CAMERA_Z_DISTANCE_FROM_PLAYER);
@@ -303,7 +322,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
   return (
     <Suspense fallback={<Loader />}>
-      <Player ref={playerRef} moving={moving} />
+      <Player ref={playerRef} />
       {remotePlayers}
       <Bee position={[0, 20, 0]} />
       <Bee position={[0, 20, 0]} />
