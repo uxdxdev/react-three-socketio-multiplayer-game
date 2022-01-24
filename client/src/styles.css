@@ -41,3 +41,8 @@ div#buttons {
 header {
   display: flex;
 }
+
+#ping {
+  position: absolute;
+  z-index: 1;
+}

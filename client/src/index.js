@@ -37,8 +37,23 @@ const App = () => {
     }
   }, [authToken, isServerAuthed]);
 
+  useEffect(() => {
+    setInterval(() => {
+      if (authToken && isServerAuthed) {
+        const t0 = performance.now();
+        const fetchData = async () => {
+          await fetch(`${process.env.REACT_APP_SERVER_URL}/ping`).catch((err) => console.log(err));
+        };
+        fetchData();
+        const t1 = performance.now();
+        document.getElementById('ping').innerText = `ping ${Math.round(t1 - t0)}ms`;
+      }
+    }, 1000);
+  }, [authToken, isServerAuthed]);
+
   return (
     <>
+      <div id="ping">0</div>
       <div id="auth-container">
         {!authToken && (
           <div id="buttons">

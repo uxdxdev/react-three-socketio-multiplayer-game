@@ -23,7 +23,6 @@ export const Character = memo(
       }
 
       if (isMoving.current && !isUpdatingPosition) {
-        console.log('stopped moving');
         actions.Run.stop();
         actions.Idle.play();
         isMoving.current = false;
