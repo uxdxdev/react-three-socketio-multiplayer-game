@@ -5,7 +5,7 @@ import fs from 'fs';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
-import { Vector3 } from 'three';
+import { getRandomInt, getUpdatedPlayerPositionRotation } from '@uxdx/multiplayer-engine';
 
 dotenv.config();
 
@@ -17,10 +17,6 @@ const events = {
   DISCONNECT: 'disconnect',
   CONNECTED: 'connected',
 };
-
-const frontVector = new Vector3();
-const sideVector = new Vector3();
-const direction = new Vector3();
 
 const tree01Data = fs.readFileSync('src/data/tree01.json', 'utf8');
 const tree01 = JSON.parse(tree01Data);
@@ -80,7 +76,6 @@ const auth = admin.auth();
 const app = express();
 
 app.use((req, res, next) => {
-  console.log('Allowed origin', process.env.CLIENT_URL);
   // only allow requests from the client URL
   res.header('Access-Control-Allow-Origin', process.env.CLIENT_URL);
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, auth-token');
@@ -194,126 +189,7 @@ io.on(events.CONNECTION, (client) => {
   });
 });
 
-const runCollisionDetection = (playerData, world) => {
-  const playerBBoxRotated = getRotatedRectangle(playerData.rotation, playerData.position, playerBoundingBox);
-
-  const worldObjects = world.collidableObjects;
-  for (const worldObject of worldObjects) {
-    const objectBBoxRotated = getRotatedRectangle(worldObject.rotation, { x: worldObject.x, z: worldObject.z }, worldObject.bbox);
-    if (doPolygonsIntersect(playerBBoxRotated, objectBBoxRotated)) {
-      // end the loop and signal a collision
-      return true;
-    }
-  }
-
-  return false;
-};
-
-const updatePlayerPosition = (player, playerSpeed, delta, world) => {
-  const newPosition = { ...player.position };
-  if (player.controls.left) newPosition.x -= playerSpeed * delta;
-  if (player.controls.right) newPosition.x += playerSpeed * delta;
-  if (player.controls.forward) newPosition.z -= playerSpeed * delta;
-  if (player.controls.backward) newPosition.z += playerSpeed * delta;
-
-  // if player leaves world boundaries position them on the other side of the world
-  // this gives the illusion that the player is running around on a sphere
-  if (newPosition.x < -world.width) newPosition.x = world.width;
-  if (newPosition.x > world.width) newPosition.x = -world.width;
-  if (newPosition.z < -world.depth) newPosition.z = world.depth;
-  if (newPosition.z > world.depth) newPosition.z = -world.depth;
-
-  return newPosition;
-};
-
-const rotatePoint = (angle, cx, cz, px, pz) => {
-  let x = px;
-  let z = pz;
-  x -= cx;
-  z -= cz;
-  let newX = x * Math.cos(angle) - z * Math.sin(angle);
-  let newZ = x * Math.sin(angle) + z * Math.cos(angle);
-  x = newX + cx;
-  z = newZ + cz;
-  return {
-    x,
-    z,
-  };
-};
-
-// rotate bounding box points around the objects center at an angle
-const getRotatedRectangle = (angle, objCenter, bbox) => {
-  let bl = rotatePoint(angle, objCenter.x, objCenter.z, objCenter.x + bbox.bl.x, objCenter.z + bbox.bl.z);
-  let br = rotatePoint(angle, objCenter.x, objCenter.z, objCenter.x + bbox.br.x, objCenter.z + bbox.br.z);
-  let fr = rotatePoint(angle, objCenter.x, objCenter.z, objCenter.x + bbox.fr.x, objCenter.z + bbox.fr.z);
-  let fl = rotatePoint(angle, objCenter.x, objCenter.z, objCenter.x + bbox.fl.x, objCenter.z + bbox.fl.z);
-  return [bl, br, fr, fl];
-};
-
-const isUndefined = (value) => {
-  return value === undefined;
-};
-
-//  Separating Axis Theorem
-const doPolygonsIntersect = (a, b) => {
-  var polygons = [a, b];
-  var minA, maxA, projected, i, i1, j, minB, maxB;
-
-  for (i = 0; i < polygons.length; i++) {
-    // for each polygon, look at each edge of the polygon, and determine if it separates
-    // the two shapes
-    var polygon = polygons[i];
-    for (i1 = 0; i1 < polygon.length; i1++) {
-      // grab 2 vertices to create an edge
-      var i2 = (i1 + 1) % polygon.length;
-      var p1 = polygon[i1];
-      var p2 = polygon[i2];
-
-      // find the line perpendicular to this edge
-      var normal = { x: p2.z - p1.z, z: p1.x - p2.x };
-
-      minA = maxA = undefined;
-      // for each vertex in the first shape, project it onto the line perpendicular to the edge
-      // and keep track of the min and max of these values
-      for (j = 0; j < a.length; j++) {
-        projected = normal.x * a[j].x + normal.z * a[j].z;
-        if (isUndefined(minA) || projected < minA) {
-          minA = projected;
-        }
-        if (isUndefined(maxA) || projected > maxA) {
-          maxA = projected;
-        }
-      }
-
-      // for each vertex in the second shape, project it onto the line perpendicular to the edge
-      // and keep track of the min and max of these values
-      minB = maxB = undefined;
-      for (j = 0; j < b.length; j++) {
-        projected = normal.x * b[j].x + normal.z * b[j].z;
-        if (isUndefined(minB) || projected < minB) {
-          minB = projected;
-        }
-        if (isUndefined(maxB) || projected > maxB) {
-          maxB = projected;
-        }
-      }
-
-      // if there is no overlap between the projects, the edge we are looking at separates the two
-      // polygons, and we know there is no overlap
-      if (maxA < minB || maxB < minA) {
-        return false;
-      }
-    }
-  }
-  return true;
-};
-
 const pick = ['left', 'right', 'forward', 'backward'];
-const getRandomInt = (min, max) => {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-};
 
 export const generateRandomPlayers = () => {
   // randomly move the players around
@@ -365,22 +241,21 @@ const tick = () => {
     while (players[key].moves.length > 0) {
       const move = players[key].moves.shift();
 
-      // apply rotation to player based on controls
-      frontVector.set(0, 0, Number(move.controls.backward) - Number(move.controls.forward));
-      sideVector.set(Number(move.controls.left) - Number(move.controls.right), 0, 0);
-      direction.subVectors(frontVector, sideVector);
-      const rotation = Math.atan2(direction.z, direction.x);
+      const { position, rotation } = getUpdatedPlayerPositionRotation(
+        {
+          x: players[key].position.x,
+          z: players[key].position.z,
+        },
+        players[key].rotation,
+        move.controls,
+        PLAYER_SPEED,
+        delta,
+        worldData,
+        playerBoundingBox
+      );
 
-      // collision detection based on new position
-      const newPosition = updatePlayerPosition({ position: players[key].position, controls: move.controls }, PLAYER_SPEED, delta, worldData);
-
-      const updatedPlayerData = { rotation, position: newPosition };
-      const isPlayerColliding = runCollisionDetection(updatedPlayerData, worldData);
-
-      if (!isPlayerColliding) {
-        players[key].position = newPosition;
-        players[key].rotation = rotation;
-      }
+      players[key].position = position;
+      players[key].rotation = rotation;
 
       // record the latest processed move timestamp
       players[key].ts = move.ts;

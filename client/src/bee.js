@@ -3,13 +3,7 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import { Vector3 } from 'three';
 import { useGraph, useFrame } from '@react-three/fiber';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils';
-import { randInt } from 'three/src/math/MathUtils';
-
-const getRandomInt = (min, max) => {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-};
+import { getRandomInt } from '@uxdx/multiplayer-engine';
 
 const getRandomPosition = () => {
   const randX = Math.ceil(Math.random() * 50) * (Math.round(Math.random()) ? 1 : -1);
@@ -43,7 +37,7 @@ export const Bee = memo(({ position }) => {
     actions?.Flying.play();
     setTimeout(() => {
       actions?.Bite_Front.play();
-    }, randInt(1, 3000));
+    }, getRandomInt(1, 3000));
   }, [actions]);
 
   useFrame((_, delta) => {
