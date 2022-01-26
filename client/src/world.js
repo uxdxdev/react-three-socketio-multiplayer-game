@@ -22,6 +22,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const playerSavedMovesRef = useRef([]);
   const serverPosition = useRef({ x: 0, z: 0, rotation: 0 });
   const remotePlayersRef = useRef({});
+  const isPlayerMoving = useRef(false);
 
   const [remotePlayers, setRemotePlayers] = useState([]);
 
@@ -123,7 +124,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
     // slowly correct players predicted position to server position
     // moving && playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.1);
-    playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.2);
+    isPlayerMoving.current && playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.2);
 
     // when the player lerps close enough to server position lock it in
     if (Math.abs(playerRef.current.position.x - correctedPlayerPositionX) < 0.1) {
@@ -144,7 +145,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
   return (
     <Suspense fallback={<Loader />}>
-      <Player ref={playerRef} userId={userId} socketClient={socketClient} playerSavedMovesRef={playerSavedMovesRef} playerSpeed={PLAYER_SPEED} worldData={worldData} />
+      <Player ref={playerRef} isPlayerMoving={isPlayerMoving} userId={userId} socketClient={socketClient} playerSavedMovesRef={playerSavedMovesRef} playerSpeed={PLAYER_SPEED} worldData={worldData} />
       {remotePlayers}
       <Bee position={[0, 20, 0]} />
       <Bee position={[0, 20, 0]} />

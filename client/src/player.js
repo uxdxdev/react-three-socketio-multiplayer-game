@@ -15,12 +15,13 @@ const sendPlayerData = (socketClient, playerData) => {
 };
 
 export const Player = memo(
-  forwardRef(({ userId, socketClient, playerSavedMovesRef, playerSpeed, worldData }, ref) => {
+  forwardRef(({ userId, socketClient, playerSavedMovesRef, playerSpeed, worldData, isPlayerMoving }, ref) => {
     const controls = usePlayerControls();
     const { forward, backward, left, right } = controls;
     const moving = forward || backward || left || right;
 
     useFrame((_, delta) => {
+      isPlayerMoving.current = moving;
       if (moving) {
         // SEND PLAYER INPUTS TO SERVER
         const playerData = {
