@@ -9,8 +9,8 @@ import { getRandomInt, getUpdatedPlayerPositionRotation } from '@uxdx/multiplaye
 
 dotenv.config();
 
-const tickRateMilliseconds = 15;
-const PLAYER_SPEED = 10;
+const tickRateMilliseconds = 50;
+const PLAYER_SPEED = 3;
 const players = {};
 const events = {
   CONNECTION: 'connection',

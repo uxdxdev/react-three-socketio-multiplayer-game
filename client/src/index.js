@@ -51,25 +51,9 @@ const App = () => {
     }, 1000);
   }, [authToken, isServerAuthed]);
 
-  useEffect(() => {
-    var log = document.querySelector('#error-log');
-    ['log', 'debug', 'info', 'warn', 'error'].forEach(function (verb) {
-      console[verb] = (function (method, verb, log) {
-        return function () {
-          method.apply(console, arguments);
-          var msg = document.createElement('div');
-          msg.classList.add(verb);
-          msg.textContent = verb + ': ' + Array.prototype.slice.call(arguments).join(' ');
-          log.prepend(msg);
-        };
-      })(console[verb], verb, log);
-    });
-  }, []);
-
   return (
     <>
       <div id="ping">ping 0ms</div>
-      <div id="error-log"></div>
       <div id="auth-container">
         {!authToken && (
           <div id="buttons">

@@ -46,10 +46,3 @@ header {
   position: absolute;
   z-index: 1;
 }
-
-div#error-log {
-  position: absolute;
-  z-index: 1;
-  height: 100%;
-  overflow-y: hidden;
-}
