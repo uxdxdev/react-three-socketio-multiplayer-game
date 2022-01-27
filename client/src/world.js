@@ -22,7 +22,8 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const playerSavedMovesRef = useRef([]);
   const serverPosition = useRef({ x: 0, z: 0, rotation: 0 });
   const remotePlayersRef = useRef({});
-  const isPlayerMoving = useRef(false);
+  const isPlayerMovingRef = useRef(false);
+  const allPlayersRef = useRef({});
 
   const [remotePlayers, setRemotePlayers] = useState([]);
 
@@ -44,26 +45,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
         // delete this user from the world update
         delete allPlayers[userId];
 
-        Object.keys(allPlayers).forEach((serverPlayerKey) => {
-          // if the player exists on the client already just update their position
-          if (remotePlayersRef.current.hasOwnProperty(serverPlayerKey)) {
-            const playerData = allPlayers[serverPlayerKey];
-            const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
-            if (remotePlayersRef.current[serverPlayerKey].ref.current) {
-              remotePlayersRef.current[serverPlayerKey].ref.current.position.lerp(new Vector3(allPlayers[serverPlayerKey].position.x, 0, allPlayers[serverPlayerKey].position.z), 0.2);
-
-              // when the player lerps close enough to server position lock it in
-              if (Math.abs(remotePlayersRef.current[serverPlayerKey].ref.current.position.x - allPlayers[serverPlayerKey].position.x) < 0.1) {
-                remotePlayersRef.current[serverPlayerKey].ref.current.position.x = allPlayers[serverPlayerKey].position.x;
-              }
-              if (Math.abs(remotePlayersRef.current[serverPlayerKey].ref.current.position.z - allPlayers[serverPlayerKey].position.z) < 0.1) {
-                remotePlayersRef.current[serverPlayerKey].ref.current.position.z = allPlayers[serverPlayerKey].position.z;
-              }
-
-              remotePlayersRef.current[serverPlayerKey].ref.current.rotation.set(0, updatedRotation, 0);
-            }
-          }
-        });
+        allPlayersRef.current = allPlayers;
 
         // rebuild the component tree if there is any difference
         // between client and server players
@@ -74,13 +56,15 @@ export const World = memo(({ userId, socketClient, worldData }) => {
           const updatedRemotePlayers = [];
           serverPlayerKeys.forEach((key) => {
             const ref = createRef();
+            const isMovingRef = createRef();
             const playerData = allPlayers[key];
             const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
-            const remotePlayer = <RemotePlayer ref={ref} key={key} position={[playerData.position.x, playerData.position.y, playerData.position.z]} rotation={updatedRotation} />;
+            const remotePlayer = <RemotePlayer ref={ref} key={key} position={[playerData.position.x, 0, playerData.position.z]} rotation={updatedRotation} isMovingRef={isMovingRef} />;
 
             updatedRemotePlayers.push(remotePlayer);
             remotePlayersRef.current[key] = {
               ref,
+              isMovingRef,
             };
           });
           setRemotePlayers(updatedRemotePlayers);
@@ -90,6 +74,37 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   }, [socketClient, userId]);
 
   useFrame(({ camera }, delta) => {
+    Object.keys(allPlayersRef.current).forEach((serverPlayerKey) => {
+      // if the player exists on the client already just update their position
+      if (remotePlayersRef.current.hasOwnProperty(serverPlayerKey)) {
+        const playerData = allPlayersRef.current[serverPlayerKey];
+        const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
+        if (remotePlayersRef.current[serverPlayerKey].ref.current) {
+          remotePlayersRef.current[serverPlayerKey].ref.current.position.lerp(new Vector3(allPlayersRef.current[serverPlayerKey].position.x, 0, allPlayersRef.current[serverPlayerKey].position.z), 0.2);
+
+          // when the player lerps close enough to server position lock it in
+          if (Math.abs(remotePlayersRef.current[serverPlayerKey].ref.current.position.x - allPlayersRef.current[serverPlayerKey].position.x) < 0.1) {
+            remotePlayersRef.current[serverPlayerKey].ref.current.position.x = allPlayersRef.current[serverPlayerKey].position.x;
+          }
+          if (Math.abs(remotePlayersRef.current[serverPlayerKey].ref.current.position.z - allPlayersRef.current[serverPlayerKey].position.z) < 0.1) {
+            remotePlayersRef.current[serverPlayerKey].ref.current.position.z = allPlayersRef.current[serverPlayerKey].position.z;
+          }
+
+          remotePlayersRef.current[serverPlayerKey].ref.current.rotation.set(0, updatedRotation, 0);
+
+          //  check if player is moving
+          if (
+            remotePlayersRef.current[serverPlayerKey].ref.current.position.x !== allPlayersRef.current[serverPlayerKey].position.x ||
+            remotePlayersRef.current[serverPlayerKey].ref.current.position.z !== allPlayersRef.current[serverPlayerKey].position.z
+          ) {
+            remotePlayersRef.current[serverPlayerKey].isMovingRef.current = true;
+          } else {
+            remotePlayersRef.current[serverPlayerKey].isMovingRef.current = false;
+          }
+        }
+      }
+    });
+
     // CLIENT SIDE PREDICTION REPLAY
     let correctedPlayerPositionX = serverPosition.current.x;
     let correctedPlayerPositionZ = serverPosition.current.z;
@@ -123,8 +138,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     }
 
     // slowly correct players predicted position to server position
-    // moving && playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.1);
-    isPlayerMoving.current && playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.2);
+    isPlayerMovingRef.current && playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.2);
 
     // when the player lerps close enough to server position lock it in
     if (Math.abs(playerRef.current.position.x - correctedPlayerPositionX) < 0.1) {
@@ -145,7 +159,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
   return (
     <Suspense fallback={<Loader />}>
-      <Player ref={playerRef} isPlayerMoving={isPlayerMoving} userId={userId} socketClient={socketClient} playerSavedMovesRef={playerSavedMovesRef} playerSpeed={PLAYER_SPEED} worldData={worldData} />
+      <Player ref={playerRef} isMovingRef={isPlayerMovingRef} userId={userId} socketClient={socketClient} playerSavedMovesRef={playerSavedMovesRef} playerSpeed={PLAYER_SPEED} worldData={worldData} />
       {remotePlayers}
       <Bee position={[0, 20, 0]} />
       <Bee position={[0, 20, 0]} />
