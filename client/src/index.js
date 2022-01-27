@@ -46,7 +46,7 @@ const App = () => {
         };
         fetchData();
         const t1 = performance.now();
-        document.getElementById('ping').innerText = `ping ${Math.round(t1 - t0)}ms`;
+        document.getElementById('ping').innerText = `ping ${(t1 - t0).toFixed(2)}ms`;
       }
     }, 1000);
   }, [authToken, isServerAuthed]);
@@ -54,6 +54,7 @@ const App = () => {
   return (
     <>
       <div id="ping">ping 0ms</div>
+      <div id="delta">delta 0ms</div>
       <div id="auth-container">
         {!authToken && (
           <div id="buttons">

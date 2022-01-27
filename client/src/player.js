@@ -21,6 +21,8 @@ export const Player = memo(
     const moving = forward || backward || left || right;
 
     useFrame((_, delta) => {
+      document.getElementById('delta').innerText = `delta ${delta.toFixed(2)}ms`;
+
       isMovingRef.current = moving;
       if (moving) {
         // SEND PLAYER INPUTS TO SERVER
