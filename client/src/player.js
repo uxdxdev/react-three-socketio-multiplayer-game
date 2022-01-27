@@ -15,17 +15,16 @@ const sendPlayerData = (socketClient, playerData) => {
 };
 
 export const Player = memo(
-  forwardRef(({ userId, socketClient, playerSavedMovesRef, playerSpeed, worldData, isMovingRef }, ref) => {
+  forwardRef(({ userId, socketClient, playerSavedMovesRef, worldData, isMovingRef }, ref) => {
     const controls = usePlayerControls();
     const { forward, backward, left, right } = controls;
     const moving = forward || backward || left || right;
 
-    useFrame((_, delta) => {
-      document.getElementById('delta').innerText = `delta ${delta.toFixed(2)}ms`;
-
+    useFrame(() => {
       isMovingRef.current = moving;
       if (moving) {
         // SEND PLAYER INPUTS TO SERVER
+        const now = Date.now();
         const playerData = {
           id: userId,
           controls: {
@@ -34,7 +33,7 @@ export const Player = memo(
             left,
             right,
           },
-          ts: Date.now(),
+          ts: now,
         };
         sendPlayerData(socketClient, playerData);
 
@@ -46,11 +45,9 @@ export const Player = memo(
           },
           updateAngleByRadians(ref.current.rotation.y, Math.PI / 2),
           { forward, backward, left, right },
-          playerSpeed,
-          delta,
-          worldData,
-          worldData.playerBoundingBox
+          worldData
         );
+
         ref.current.position.x = position.x;
         ref.current.position.z = position.z;
 

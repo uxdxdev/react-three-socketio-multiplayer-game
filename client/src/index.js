@@ -54,7 +54,6 @@ const App = () => {
   return (
     <>
       <div id="ping">ping 0ms</div>
-      <div id="delta">delta 0ms</div>
       <div id="auth-container">
         {!authToken && (
           <div id="buttons">

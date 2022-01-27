@@ -15,7 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@uxdx/multiplayer-engine": "^1.0.0",
+    "@uxdx/multiplayer-engine": "^1.0.3",
     "dotenv": "^10.0.0",
     "express": "^4.17.2",
     "firebase-admin": "^10.0.1",

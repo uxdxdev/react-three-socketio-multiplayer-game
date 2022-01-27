@@ -42,12 +42,7 @@ header {
   display: flex;
 }
 
-#ping,
-#delta {
+#ping {
   position: absolute;
   z-index: 1;
-}
-
-#delta {
-  top: 20px;
 }

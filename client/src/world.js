@@ -27,8 +27,6 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
   const [remotePlayers, setRemotePlayers] = useState([]);
 
-  const PLAYER_SPEED = worldData.playerSpeed;
-
   useEffect(() => {
     if (socketClient) {
       socketClient.on('world_update', (allPlayers) => {
@@ -73,7 +71,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     }
   }, [socketClient, userId]);
 
-  useFrame(({ camera }, delta) => {
+  useFrame(({ camera }) => {
     Object.keys(allPlayersRef.current).forEach((serverPlayerKey) => {
       // if the player exists on the client already just update their position
       if (remotePlayersRef.current.hasOwnProperty(serverPlayerKey)) {
@@ -120,10 +118,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
         },
         predicatedPlayerRotation,
         controls,
-        PLAYER_SPEED,
-        delta,
-        worldData,
-        worldData.playerBoundingBox
+        worldData
       );
       correctedPlayerPositionX = position.x;
       correctedPlayerPositionZ = position.z;
@@ -159,7 +154,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
 
   return (
     <Suspense fallback={<Loader />}>
-      <Player ref={playerRef} isMovingRef={isPlayerMovingRef} userId={userId} socketClient={socketClient} playerSavedMovesRef={playerSavedMovesRef} playerSpeed={PLAYER_SPEED} worldData={worldData} />
+      <Player ref={playerRef} isMovingRef={isPlayerMovingRef} userId={userId} socketClient={socketClient} playerSavedMovesRef={playerSavedMovesRef} worldData={worldData} />
       {remotePlayers}
       <Bee position={[0, 20, 0]} />
       <Bee position={[0, 20, 0]} />

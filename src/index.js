@@ -10,7 +10,7 @@ import { getRandomInt, getUpdatedPlayerPositionRotation } from '@uxdx/multiplaye
 dotenv.config();
 
 const tickRateMilliseconds = 50;
-const PLAYER_SPEED = 3;
+const PLAYER_MOVE_INCREMENT = 0.16;
 const players = {};
 const events = {
   CONNECTION: 'connection',
@@ -59,7 +59,7 @@ const worldData = {
   collidableObjects: [...tree01, ...house01],
   noncollidableObjects: [...grass01, ...plant01, ...mushroom01],
   playerBoundingBox,
-  playerSpeed: PLAYER_SPEED,
+  playerMoveIncrement: PLAYER_MOVE_INCREMENT,
 };
 
 admin.initializeApp({
@@ -232,10 +232,7 @@ setInterval(() => {
   tick();
 }, tickRateMilliseconds);
 
-let prevTime = 0;
 const tick = () => {
-  const now = Date.now();
-  const delta = (now - prevTime) / 1000;
   // for each player, update player position based on world, objects, and collision data
   for (let key of Object.keys(players)) {
     while (players[key].moves.length > 0) {
@@ -248,10 +245,7 @@ const tick = () => {
         },
         players[key].rotation,
         move.controls,
-        PLAYER_SPEED,
-        delta,
-        worldData,
-        playerBoundingBox
+        worldData
       );
 
       players[key].position = position;
@@ -262,8 +256,6 @@ const tick = () => {
     }
   }
   updateAllPlayers();
-
-  prevTime = now;
 };
 
 const updateAllPlayers = () => {
