@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { OrangeTree } from './orangeTree';
 import { House } from './house';
 import { GrassLeafs } from './grassLeafs';
 import { PlantBushDetailed } from './plantBushDetailed';
 import { Mushroom } from './mushroom';
 
-export const Environment = ({ worldData }) => {
+export const Environment = memo(({ worldData }) => {
   const environment = useMemo(() => {
     const trees = worldData.collidableObjects.filter((obj) => obj.type === 'tree01').map(({ x, z, rotation }, index) => <OrangeTree key={index} position={{ x, z }} rotation={rotation} />);
     const houses = worldData.collidableObjects.filter((obj) => obj.type === 'house01').map(({ x, z, rotation }, index) => <House key={index} position={{ x, z }} rotation={rotation} />);
@@ -15,4 +15,4 @@ export const Environment = ({ worldData }) => {
     return [trees, houses, grassLeafs, plantBushDetailed, mushrooms];
   }, [worldData]);
   return environment;
-};
+});

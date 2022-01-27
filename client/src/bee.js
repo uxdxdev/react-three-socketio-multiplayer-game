@@ -16,8 +16,7 @@ const updateAngleByRadians = (angle, radians) => {
   return radians - angle;
 };
 
-const getUpdatedRotation = (playerPositionV3, targetV3) => {
-  const direction = new Vector3(0, 0, 0);
+const getUpdatedRotation = (playerPositionV3, targetV3, direction) => {
   direction.subVectors(targetV3, playerPositionV3);
   let rotation = Math.atan2(direction.z, direction.x);
   return updateAngleByRadians(rotation, Math.PI / 2);
@@ -26,6 +25,8 @@ const getUpdatedRotation = (playerPositionV3, targetV3) => {
 export const Bee = memo(({ position }) => {
   const ref = useRef();
   const target = useRef(new Vector3(0, position[1], 0));
+  const direction = new Vector3(0, 0, 0);
+
   const { scene, materials, animations } = useGLTF('/Bee.gltf');
   const clone = useMemo(() => SkeletonUtils.clone(scene), [scene]);
   const { nodes } = useGraph(clone);
@@ -48,9 +49,11 @@ export const Bee = memo(({ position }) => {
       // pick a new position when it gets there
       const newTarget = getRandomPosition();
       target.current.set(newTarget.x, newTarget.y, newTarget.z);
-      ref.current.rotation.set(0, getUpdatedRotation(ref.current.position, target.current), 0);
+      ref.current.rotation.set(0, getUpdatedRotation(ref.current.position, target.current, direction), 0);
     }
   });
+
+  console.log('render');
 
   return (
     <group ref={ref} position={position} dispose={null}>

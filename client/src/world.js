@@ -1,4 +1,4 @@
-import { Suspense, useRef, memo, useState, useEffect, createRef } from 'react';
+import { Suspense, useRef, memo, useState, useEffect, createRef, useMemo } from 'react';
 import { Vector3 } from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Player } from './player';
@@ -24,7 +24,8 @@ export const World = memo(({ userId, socketClient, worldData }) => {
   const remotePlayersRef = useRef({});
   const isPlayerMovingRef = useRef(false);
   const allPlayersRef = useRef({});
-
+  const playerTargetVec3 = new Vector3();
+  const remotePlayerTargetVec3 = new Vector3();
   const [remotePlayers, setRemotePlayers] = useState([]);
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
         const playerData = allPlayersRef.current[serverPlayerKey];
         const updatedRotation = updateAngleByRadians(playerData.rotation, Math.PI / 2);
         if (remotePlayersRef.current[serverPlayerKey].ref.current) {
-          remotePlayersRef.current[serverPlayerKey].ref.current.position.lerp(new Vector3(allPlayersRef.current[serverPlayerKey].position.x, 0, allPlayersRef.current[serverPlayerKey].position.z), 0.2);
+          remotePlayersRef.current[serverPlayerKey].ref.current.position.lerp(remotePlayerTargetVec3.set(allPlayersRef.current[serverPlayerKey].position.x, 0, allPlayersRef.current[serverPlayerKey].position.z), 0.2);
 
           // when the player lerps close enough to server position lock it in
           if (Math.abs(remotePlayersRef.current[serverPlayerKey].ref.current.position.x - allPlayersRef.current[serverPlayerKey].position.x) < 0.1) {
@@ -125,62 +126,46 @@ export const World = memo(({ userId, socketClient, worldData }) => {
       predicatedPlayerRotation = rotation;
     });
 
-    if (Math.abs(playerRef.current.position.x - correctedPlayerPositionX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - correctedPlayerPositionZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
-      // if the players position is WAY off just reset them to the server position
-      // this will happen when a player is leaving the world and re-entering the other side
-      playerRef.current.position.x = correctedPlayerPositionX;
-      playerRef.current.position.z = correctedPlayerPositionZ;
+    if (playerRef.current) {
+      if (Math.abs(playerRef.current.position.x - correctedPlayerPositionX) > CLIENT_SERVER_POSITION_DIFF_MAX || Math.abs(playerRef.current.position.z - correctedPlayerPositionZ) > CLIENT_SERVER_POSITION_DIFF_MAX) {
+        // if the players position is WAY off just reset them to the server position
+        // this will happen when a player is leaving the world and re-entering the other side
+        playerRef.current.position.x = correctedPlayerPositionX;
+        playerRef.current.position.z = correctedPlayerPositionZ;
+      }
+
+      // slowly correct players predicted position to server position
+      isPlayerMovingRef.current && playerRef.current.position.lerp(playerTargetVec3.set(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.3);
+
+      // when the player lerps close enough to server position lock it in
+      if (Math.abs(playerRef.current.position.x - correctedPlayerPositionX) < 0.1) {
+        playerRef.current.position.x = correctedPlayerPositionX;
+      }
+      if (Math.abs(playerRef.current.position.z - correctedPlayerPositionZ) < 0.1) {
+        playerRef.current.position.z = correctedPlayerPositionZ;
+      }
+
+      // set player rotation to server rotation
+      const updatedModelRotation = updateAngleByRadians(predicatedPlayerRotation, Math.PI / 2);
+      playerRef.current.rotation.set(0, updatedModelRotation, 0);
+
+      // get the camera to follow the player by updating x and z coordinates
+      camera.position.setX(playerRef.current.position.x);
+      camera.position.setZ(playerRef.current.position.z + CAMERA_Z_DISTANCE_FROM_PLAYER);
     }
-
-    // slowly correct players predicted position to server position
-    isPlayerMovingRef.current && playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.3);
-
-    // when the player lerps close enough to server position lock it in
-    if (Math.abs(playerRef.current.position.x - correctedPlayerPositionX) < 0.1) {
-      playerRef.current.position.x = correctedPlayerPositionX;
-    }
-    if (Math.abs(playerRef.current.position.z - correctedPlayerPositionZ) < 0.1) {
-      playerRef.current.position.z = correctedPlayerPositionZ;
-    }
-
-    // set player rotation to server rotation
-    const updatedModelRotation = updateAngleByRadians(predicatedPlayerRotation, Math.PI / 2);
-    playerRef.current.rotation.set(0, updatedModelRotation, 0);
-
-    // get the camera to follow the player by updating x and z coordinates
-    camera.position.setX(playerRef.current.position.x);
-    camera.position.setZ(playerRef.current.position.z + CAMERA_Z_DISTANCE_FROM_PLAYER);
   });
+
+  const bees = useMemo(() => {
+    return Array(400)
+      .fill(0)
+      .map((_, index) => <Bee key={index} position={[0, 20, 0]} />);
+  }, []);
 
   return (
     <Suspense fallback={<Loader />}>
       <Player ref={playerRef} isMovingRef={isPlayerMovingRef} userId={userId} socketClient={socketClient} playerSavedMovesRef={playerSavedMovesRef} worldData={worldData} />
       {remotePlayers}
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-      <Bee position={[0, 20, 0]} />
-
+      {/* {bees} */}
       <Environment worldData={worldData} />
       <Ground width={worldData.width * 3} depth={worldData.depth * 3} />
     </Suspense>
