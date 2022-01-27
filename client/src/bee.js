@@ -42,8 +42,10 @@ export const Bee = memo(({ position }) => {
 
   useFrame((_, delta) => {
     if (ref.current.position.distanceTo(target.current) > 0.1) {
+      // move to the target if not close
       ref.current.position.lerp(target.current, (BEE_SPEED * delta) / ref.current.position.distanceTo(target.current));
     } else {
+      // pick a new position when it gets there
       const newTarget = getRandomPosition();
       target.current.set(newTarget.x, newTarget.y, newTarget.z);
       ref.current.rotation.set(0, getUpdatedRotation(ref.current.position, target.current), 0);

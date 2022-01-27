@@ -138,7 +138,7 @@ export const World = memo(({ userId, socketClient, worldData }) => {
     }
 
     // slowly correct players predicted position to server position
-    isPlayerMovingRef.current && playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.2);
+    isPlayerMovingRef.current && playerRef.current.position.lerp(new Vector3(correctedPlayerPositionX, 0, correctedPlayerPositionZ), 0.3);
 
     // when the player lerps close enough to server position lock it in
     if (Math.abs(playerRef.current.position.x - correctedPlayerPositionX) < 0.1) {
