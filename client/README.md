@@ -1,8 +1,8 @@
 # Development Setup
 
-- NodeJS 16 supported, there seems to be an issue at the moment with SSL in NodeJS 17 using CRA
+NodeJS 16 supported, there seems to be an issue at the moment with SSL in NodeJS 17 using CRA
 
-- create self signed certificate by installing [mkcert](https://github.com/FiloSottile/mkcert) for https in development
+Create self signed certificate by installing [mkcert](https://github.com/FiloSottile/mkcert) for https in development
 
 ```bash
 # create local Certificate Authority
@@ -11,13 +11,13 @@ mkcert -install
 mkcert localhost
 ```
 
-- update `.env` file
+Update `.env` file
 
 ```properties
 REACT_APP_SERVER_URL=https://localhost:3001
 ```
 
-- update the `script` section of the `package.json` file to point to the `*.pem` files
+Update the `script` section of the `package.json` file to point to the `*.pem` files
 
 ```properties
 ### MacOS
@@ -42,13 +42,13 @@ REACT_APP_SERVER_URL=https://localhost:3001
 }
 ```
 
-- install all dependencies
+Unstall all dependencies
 
 ```bash
 npm ci
 ```
 
-- start dev server
+Start dev server
 
 ```bash
 npm dev

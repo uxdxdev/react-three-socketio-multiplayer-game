@@ -1,8 +1,14 @@
+![](./docs/images/multiplayer-game-banner.PNG)
+
+ReactJS + ThreeJS + socket.io
+
+![](./docs/images/multiplayer-game.PNG)
+
 # Development Setup
 
-- to use ES6 JavaScript syntax with the NodeJS runtime we need to set `"type": "module"` in our package.json file
+To use ES6 JavaScript syntax with the NodeJS runtime we need to set `"type": "module"` in our package.json file
 
-- create self signed certificate by installing [mkcert](https://github.com/FiloSottile/mkcert) for https in development
+Create self signed certificate by installing [mkcert](https://github.com/FiloSottile/mkcert) for https in development
 
 ```bash
 # create local Certificate Authority
@@ -11,7 +17,7 @@ mkcert -install
 mkcert localhost
 ```
 
-- update `.env` file with the following details
+Update `.env` file with the following details
 
 ```properties
 # set our Node environment during development
@@ -25,7 +31,7 @@ CERT=localhost.pem
 PORT=3001
 ```
 
-- for authentication you need to create a Firebase project and update the `.env` file with the following details
+For authentication you need to create a Firebase project and update the `.env` file with the following details
 
 ```properties
 # Firebase project details for authentication
@@ -34,16 +40,16 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG...h5Psjn
 FIREBASE_CLIENT_EMAIL="firebase-adminsdk-....iceaccount.com"
 ```
 
-- install all dependencies
+Install all dependencies
 
 ```bash
 npm ci
 ```
 
-- start dev server
+Start dev server
 
 ```bash
 npm dev
 ```
 
-- now go setup the client
+Now go setup the client
