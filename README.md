@@ -52,4 +52,4 @@ Start dev server
 npm dev
 ```
 
-Now go setup the client
+Now go setup the [client](./client/README.md)
