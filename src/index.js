@@ -1,11 +1,11 @@
-import express from 'express';
-import https from 'https';
-import http from 'http';
-import fs from 'fs';
-import { Server } from 'socket.io';
-import dotenv from 'dotenv';
-import admin from 'firebase-admin';
-import { getRandomInt, getUpdatedPlayerPositionRotation } from '@uxdx/multiplayer-engine';
+import express from "express";
+import https from "https";
+import http from "http";
+import fs from "fs";
+import { Server } from "socket.io";
+import dotenv from "dotenv";
+import admin from "firebase-admin";
+import { getRandomInt, getUpdatedPlayerPositionRotation } from "@uxdx/multiplayer-engine";
 
 dotenv.config();
 
@@ -13,24 +13,24 @@ const tickRateMilliseconds = 50;
 const PLAYER_MOVE_INCREMENT = 0.16;
 const players = {};
 const events = {
-  CONNECTION: 'connection',
-  DISCONNECT: 'disconnect',
-  CONNECTED: 'connected',
+  CONNECTION: "connection",
+  DISCONNECT: "disconnect",
+  CONNECTED: "connected",
 };
 
-const tree01Data = fs.readFileSync('src/data/tree01.json', 'utf8');
+const tree01Data = fs.readFileSync("src/data/tree01.json", "utf8");
 const tree01 = JSON.parse(tree01Data);
 
-const house01Data = fs.readFileSync('src/data/house01.json', 'utf8');
+const house01Data = fs.readFileSync("src/data/house01.json", "utf8");
 const house01 = JSON.parse(house01Data);
 
-const grass01Data = fs.readFileSync('src/data/grass01.json', 'utf8');
+const grass01Data = fs.readFileSync("src/data/grass01.json", "utf8");
 const grass01 = JSON.parse(grass01Data);
 
-const plant01Data = fs.readFileSync('src/data/plant01.json', 'utf8');
+const plant01Data = fs.readFileSync("src/data/plant01.json", "utf8");
 const plant01 = JSON.parse(plant01Data);
 
-const mushroom01Data = fs.readFileSync('src/data/mushroom01.json', 'utf8');
+const mushroom01Data = fs.readFileSync("src/data/mushroom01.json", "utf8");
 const mushroom01 = JSON.parse(mushroom01Data);
 
 const playerBoundingBox = {
@@ -65,7 +65,7 @@ const worldData = {
 admin.initializeApp({
   credential: admin.credential.cert({
     project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     client_email: process.env.FIREBASE_CLIENT_EMAIL,
   }),
 });
@@ -77,25 +77,27 @@ const app = express();
 
 app.use((req, res, next) => {
   // only allow requests from the client URL
-  res.header('Access-Control-Allow-Origin', process.env.CLIENT_URL);
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, auth-token');
-  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header("Access-Control-Allow-Origin", process.env.CLIENT_URL);
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, auth-token");
+  res.header("Access-Control-Allow-Methods", "GET");
   next();
 });
 
 // server homepage
-app.get('/', (req, res) => {
-  res.send(`<div>${getNumberOfConnectedClients()} clients connected</div><a href="${process.env.CLIENT_URL}">Go to client</a>`);
+app.get("/", (req, res) => {
+  res.send(
+    `<div>${getNumberOfConnectedClients()} clients connected</div><a href="${process.env.CLIENT_URL}">Go to client</a>`
+  );
 });
 
 // health check API
-app.get('/ping', (req, res) => {
+app.get("/ping", (req, res) => {
   res.sendStatus(200);
 });
 
 // send world data to clients for initialisation
-app.get('/world', async (req, res) => {
-  const token = req.header('auth-token');
+app.get("/world", async (req, res) => {
+  const token = req.header("auth-token");
   let isAuthenticated = false;
   try {
     isAuthenticated = await auth
@@ -115,7 +117,7 @@ app.get('/world', async (req, res) => {
 
 // HTTP(S) SERVER
 let server = null;
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === "development") {
   // during development setup HTTPS using self signed certificate
   const options = {
     key: fs.readFileSync(process.env.KEY),
@@ -149,7 +151,7 @@ io.use(async (socket, next) => {
   if (token && isAuthenticated) {
     next();
   } else {
-    next(new Error('You are not authorised to make a connection to this server'));
+    next(new Error("You are not authorised to make a connection to this server"));
   }
 });
 
@@ -158,7 +160,11 @@ const getNumberOfConnectedClients = () => {
 };
 
 io.on(events.CONNECTION, (client) => {
-  console.log(`User ${client.handshake.auth.userId} connected on socket ${client.id}, there are currently ${getNumberOfConnectedClients()} users connected`);
+  console.log(
+    `User ${client.handshake.auth.userId} connected on socket ${
+      client.id
+    }, there are currently ${getNumberOfConnectedClients()} users connected`
+  );
 
   players[client.handshake.auth.userId] = {
     position: {
@@ -175,7 +181,7 @@ io.on(events.CONNECTION, (client) => {
   client.emit(events.CONNECTED, client.id);
 
   // save updates from the client
-  client.on('player_update', ({ id, controls, ts }) => {
+  client.on("player_update", ({ id, controls, ts }) => {
     if (id && players[id]) {
       controls && ts && players[id].moves.push({ ts, controls });
     }
@@ -185,11 +191,11 @@ io.on(events.CONNECTION, (client) => {
     console.log(`User ${client.handshake.auth.userId} disconnected`);
 
     delete players[client.handshake.auth.userId];
-    io.sockets.emit('players', players);
+    io.sockets.emit("players", players);
   });
 });
 
-const pick = ['left', 'right', 'forward', 'backward'];
+const pick = ["left", "right", "forward", "backward"];
 
 export const generateRandomPlayers = () => {
   // randomly move the players around
@@ -203,18 +209,20 @@ export const generateRandomPlayers = () => {
     const index = getRandomInt(0, 3);
     const direction = pick[index];
     controls[direction] = true;
-    players['player' + p].moves.push({ ts: Date.now(), controls });
+    for (let q = 0; q < 20; q++) {
+      players["player" + p].moves.push({ ts: Date.now(), controls });
+    }
   }
 };
 
 export const initRandomPlayers = () => {
   // setup some players
   for (let p = 0; p < 100; p++) {
-    players['player' + p] = {
+    players["player" + p] = {
       position: {
-        x: 0,
+        x: getRandomInt(-100, 100),
         y: 0,
-        z: 0,
+        z: getRandomInt(-100, 100),
       },
       rotation: 0,
       moves: [],
@@ -223,10 +231,12 @@ export const initRandomPlayers = () => {
   }
 };
 
-// initRandomPlayers();
-// setInterval(() => {
-//   generateRandomPlayers();
-// }, 33);
+if (process.env.NODE_ENV === "development") {
+  initRandomPlayers();
+  setInterval(() => {
+    generateRandomPlayers();
+  }, 200);
+}
 
 setInterval(() => {
   tick();
@@ -260,5 +270,5 @@ const tick = () => {
 
 const updateAllPlayers = () => {
   // send all clients all player data
-  io.sockets.emit('world_update', players);
+  io.sockets.emit("world_update", players);
 };
